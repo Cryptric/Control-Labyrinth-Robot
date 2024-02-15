@@ -10,11 +10,17 @@ def main():
 	termination_event = Event()
 	p: Process = Process(target=Davis346Reader.run, args=(producer_conn, termination_event))
 	p.start()
-	while True:
-		frame = consumer_conn.recv()
-		cv2.imshow("frame", frame)
-		if cv2.waitKey(1) & 0xFF == ord('q'):
-			termination_event.set()
+	producer_conn.close()
+	while not termination_event.is_set():
+		try:
+			frame = consumer_conn.recv()
+			cv2.imshow("frame", frame)
+			if cv2.waitKey(1) & 0xFF == ord('q'):
+				termination_event.set()
+				break
+		except EOFError:
+			print("Producer exited")
+			print("Shutting down")
 			break
 
 
