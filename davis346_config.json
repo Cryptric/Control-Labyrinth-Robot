@@ -47,7 +47,7 @@
     "BiasBuffer_fine": 254,
     "aps_enabled": true,
     "dvs_enabled": true,
-    "exposure": 30000,
+    "exposure": 11000,
     "autoexposure": false,
     "frame_interval": 0,
     "imu_enabled": true,

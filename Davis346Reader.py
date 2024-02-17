@@ -36,8 +36,8 @@ def run(producer_conn: Connection, termination_event: Event):
 					producer_conn.send(frames[0])
 
 	finally:
+		termination_event.set()
+		producer_conn.close()
 		if device is not None:
 			device.shutdown()
 			print("davis shutdown")
-		termination_event.set()
-		producer_conn.close()
