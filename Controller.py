@@ -18,8 +18,9 @@ import CueNetV2
 from CueNetV2 import device
 import Davis346Reader
 from utils.Plotting import pr_cmap
+from utils.FrameUtils import remove_distortion
 
-matplotlib.use('QTAgg')
+matplotlib.use('TkAgg')
 
 
 IMG_SIZE_X = 346
@@ -46,6 +47,7 @@ def update(_, consumer_conn: Connection, frame_buffer: List[np.ndarray], cue_net
 	if consumer_conn.poll():
 		try:
 			frame = consumer_conn.recv()
+			frame = remove_distortion(frame)
 			frame += 64
 			frame[frame < 64] = 255
 			img.set_array(frame)
