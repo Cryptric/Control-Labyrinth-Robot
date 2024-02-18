@@ -1,39 +1,26 @@
+from functools import partial
 from multiprocessing import Pipe, Process, Event
 from multiprocessing.connection import Connection
-from functools import partial
 from typing import List
 
 import matplotlib
-
-from matplotlib import pyplot as plt
-from matplotlib import patches
-from matplotlib.animation import FuncAnimation
-from matplotlib.image import AxesImage
 import numpy as np
 import torch
 import torchvision.transforms.functional as TF
+from matplotlib import patches
+from matplotlib import pyplot as plt
+from matplotlib.animation import FuncAnimation
+from matplotlib.image import AxesImage
 from torch import Tensor
 
 import CueNetV2
-from CueNetV2 import device
 import Davis346Reader
+from CueNetV2 import device
+from Params import *
+from utils.FrameUtils import remove_distortion, find_board_corners, calc_px2mm, mapping_px2mm
 from utils.Plotting import pr_cmap
-from utils.FrameUtils import remove_distortion
 
 matplotlib.use('TkAgg')
-
-
-IMG_SIZE_X = 346
-IMG_SIZE_Y = 260
-
-PROCESSING_SIZE_WIDTH = 240
-PROCESSING_SIZE_HEIGHT = 180
-
-X_EDGE = IMG_SIZE_X - PROCESSING_SIZE_WIDTH
-Y_EDGE = IMG_SIZE_Y - PROCESSING_SIZE_HEIGHT
-
-PROCESSING_X = X_EDGE // 2
-PROCESSING_Y = Y_EDGE // 2
 
 
 def calc_position_heatmap(frame1: Tensor, frame2: Tensor, frame3: Tensor, cue_net: CueNetV2) -> np.ndarray:
@@ -66,6 +53,11 @@ def update(_, consumer_conn: Connection, frame_buffer: List[np.ndarray], cue_net
 	return img, pos_heatmap
 
 
+def onclick(event, px2mm_mat):
+	board_coordinates = mapping_px2mm(px2mm_mat, [event.xdata, event.ydata])
+	print("Board coordinates: {}, {}".format(board_coordinates[0], board_coordinates[1]))
+
+
 def main():
 	cue_net = CueNetV2.load_cue_net_v2()
 	frame_buffer = []
@@ -82,6 +74,14 @@ def main():
 	p = Process(target=Davis346Reader.run, args=(producer_conn, termination_event))
 	p.start()
 	producer_conn.close()
+
+	# Find board corners for calibration
+	corner_br, corner_bl, corner_tl, corner_tr = find_board_corners(consumer_conn.recv())
+	px2mm_mat = calc_px2mm([corner_bl, corner_br, corner_tr, corner_tl])
+	print(px2mm_mat)
+	fig.canvas.mpl_connect('button_press_event', partial(onclick, px2mm_mat=px2mm_mat))
+
+	ax.scatter([corner_br[0], corner_bl[0], corner_tl[0], corner_tr[0]], [corner_br[1], corner_bl[1], corner_tl[1], corner_tr[1]], label="detected board corners")
 
 	update_func = partial(update, consumer_conn=consumer_conn, frame_buffer=frame_buffer, cue_net=cue_net, img=img, pos_heatmap=pos_heatmap)
 	_anim = FuncAnimation(fig, update_func, cache_frame_data=False, interval=0)
