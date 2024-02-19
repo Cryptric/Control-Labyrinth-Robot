@@ -11,12 +11,14 @@ from matplotlib import patches
 from matplotlib import pyplot as plt
 from matplotlib.animation import FuncAnimation
 from matplotlib.image import AxesImage
+from matplotlib.lines import Line2D
 from torch import Tensor
 
 import CueNetV2
 import Davis346Reader
 from CueNetV2 import device
 from Params import *
+from utils.ControlUtils import find_center
 from utils.FrameUtils import remove_distortion, find_board_corners, calc_px2mm, mapping_px2mm
 from utils.Plotting import pr_cmap
 
@@ -30,7 +32,7 @@ def calc_position_heatmap(frame1: Tensor, frame2: Tensor, frame3: Tensor, cue_ne
 	return output.cpu().detach().numpy()
 
 
-def update(_, consumer_conn: Connection, frame_buffer: List[np.ndarray], cue_net: CueNetV2, img: AxesImage, pos_heatmap: AxesImage):
+def update(_, consumer_conn: Connection, frame_buffer: List[np.ndarray], cue_net: CueNetV2, img: AxesImage, pos_heatmap: AxesImage, ball_pos_plot: Line2D):
 	if consumer_conn.poll():
 		try:
 			frame = consumer_conn.recv()
@@ -45,12 +47,16 @@ def update(_, consumer_conn: Connection, frame_buffer: List[np.ndarray], cue_net
 				pos_heatmap.set_array(heatmap)
 				vmin, vmax = heatmap.min(), heatmap.max()
 				pos_heatmap.set_clim(vmin=vmin, vmax=vmax)
+
+				x, y = find_center(heatmap)
+				ball_pos_plot.set_xdata(np.append(ball_pos_plot.get_xdata(), x))
+				ball_pos_plot.set_ydata(np.append(ball_pos_plot.get_ydata(), y))
 			frame_buffer.append(new_frame)
 		except EOFError:
 			print("Producer exited")
 			print("Shutting down")
 			return None
-	return img, pos_heatmap
+	return img, pos_heatmap, ball_pos_plot
 
 
 def onclick(event, px2mm_mat):
@@ -65,6 +71,8 @@ def main():
 	fig, ax = plt.subplots()
 	img = ax.imshow(np.zeros((IMG_SIZE_Y, IMG_SIZE_X)), cmap="gray", vmin=0, vmax=255)
 	pos_heatmap = ax.imshow(np.zeros((IMG_SIZE_Y, IMG_SIZE_X)), cmap=pr_cmap, alpha=1)
+
+	ball_pos_plot, = ax.plot([], [], marker='o', label="Ball position", markersize=2, c="gray")
 
 	processing_section_marker = patches.Rectangle((PROCESSING_X, PROCESSING_Y), PROCESSING_SIZE_WIDTH, PROCESSING_SIZE_HEIGHT, linewidth=1, edgecolor='r', facecolor='none')
 	ax.add_patch(processing_section_marker)
@@ -83,7 +91,7 @@ def main():
 
 	ax.scatter([corner_br[0], corner_bl[0], corner_tl[0], corner_tr[0]], [corner_br[1], corner_bl[1], corner_tl[1], corner_tr[1]], label="detected board corners")
 
-	update_func = partial(update, consumer_conn=consumer_conn, frame_buffer=frame_buffer, cue_net=cue_net, img=img, pos_heatmap=pos_heatmap)
+	update_func = partial(update, consumer_conn=consumer_conn, frame_buffer=frame_buffer, cue_net=cue_net, img=img, pos_heatmap=pos_heatmap, ball_pos_plot=ball_pos_plot)
 	_anim = FuncAnimation(fig, update_func, cache_frame_data=False, interval=0)
 
 	plt.show()
