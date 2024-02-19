@@ -32,7 +32,7 @@ def calc_position_heatmap(frame1: Tensor, frame2: Tensor, frame3: Tensor, cue_ne
 	return output.cpu().detach().numpy()
 
 
-def update(_, consumer_conn: Connection, frame_buffer: List[np.ndarray], cue_net: CueNetV2, img: AxesImage, pos_heatmap: AxesImage, ball_pos_plot: Line2D):
+def update(_, consumer_conn: Connection, frame_buffer: List[np.ndarray], cue_net: CueNetV2, img: AxesImage, pos_heatmap: AxesImage, ball_pos_plot: Line2D, stop_func):
 	if consumer_conn.poll():
 		try:
 			frame = consumer_conn.recv()
@@ -42,7 +42,7 @@ def update(_, consumer_conn: Connection, frame_buffer: List[np.ndarray], cue_net
 			img.set_array(frame)
 			new_frame = torch.squeeze(TF.to_tensor(frame[PROCESSING_Y:PROCESSING_Y + PROCESSING_SIZE_HEIGHT, PROCESSING_X:PROCESSING_X + PROCESSING_SIZE_WIDTH].astype("float32") / 255).to(device))
 			if len(frame_buffer) >= 2:
-				heatmap = calc_position_heatmap(frame_buffer.pop(0), frame_buffer[0], new_frame, cue_net)
+				heatmap = calc_position_heatmap(frame_buffer[0], new_frame, frame_buffer.pop(0), cue_net)
 				heatmap = np.pad(heatmap[0], ((Y_EDGE // 2, Y_EDGE // 2), (X_EDGE // 2, X_EDGE // 2)))
 				pos_heatmap.set_array(heatmap)
 				vmin, vmax = heatmap.min(), heatmap.max()
@@ -55,7 +55,7 @@ def update(_, consumer_conn: Connection, frame_buffer: List[np.ndarray], cue_net
 		except EOFError:
 			print("Producer exited")
 			print("Shutting down")
-			return None
+			stop_func()
 	return img, pos_heatmap, ball_pos_plot
 
 
@@ -91,12 +91,24 @@ def main():
 
 	ax.scatter([corner_br[0], corner_bl[0], corner_tl[0], corner_tr[0]], [corner_br[1], corner_bl[1], corner_tl[1], corner_tr[1]], label="detected board corners")
 
-	update_func = partial(update, consumer_conn=consumer_conn, frame_buffer=frame_buffer, cue_net=cue_net, img=img, pos_heatmap=pos_heatmap, ball_pos_plot=ball_pos_plot)
-	_anim = FuncAnimation(fig, update_func, cache_frame_data=False, interval=0)
+	def stop_anim():
+		anim.event_source.stop()
+		plt.close()
+	update_func = partial(update, consumer_conn=consumer_conn, frame_buffer=frame_buffer, cue_net=cue_net, img=img, pos_heatmap=pos_heatmap, ball_pos_plot=ball_pos_plot, stop_func=stop_anim)
+	anim = FuncAnimation(fig, update_func, cache_frame_data=False, interval=0)
 
 	plt.show()
+
 	print("plot terminated, sending termination event")
 	termination_event.set()
+	# make sure pipe isn't full, such that producer can exit
+	while p.is_alive():
+		try:
+			if consumer_conn.poll():
+				consumer_conn.recv()
+		except EOFError:
+			break
+	consumer_conn.close()
 	p.join()
 
 
