@@ -14,7 +14,7 @@ import Plotter
 from MPC import MPC
 from Params import *
 from utils.ControlUtils import find_center, send_control_signal, calc_speed
-from utils.FrameUtils import find_board_corners, calc_px2mm, mapping_px2mm, process_frame
+from utils.FrameUtils import find_board_corners, calc_px2mm, mapping_px2mm, process_frame, check_corner_points
 
 matplotlib.use('TkAgg')
 
@@ -39,7 +39,7 @@ def update(consumer_conn: Connection, frame_buffer: List[Tensor], cue_net: CueNe
 
 			# print("position: {}, {}".format(x_mm, y_mm))
 			# print("target: {}, {}".format(target_pos_x, target_pos_y))
-			print("velocity: {}, {}".format(speed_x, speed_y))
+			# print("velocity: {}, {}".format(speed_x, speed_y))
 
 			signal_x_rad = mpc_x.get_control_signal(np.append(np.linspace(x_mm, target_pos_x, N - 1), np.array([target_pos_x, target_pos_x])), xk)[0]
 			signal_y_rad = mpc_y.get_control_signal(np.append(np.linspace(y_mm, target_pos_y, N - 1), np.array([target_pos_y, target_pos_y])), yk)[0]
@@ -75,10 +75,13 @@ def main():
 	producer_conn.close()
 
 	# Find board corners for calibration
-	frame, _ = consumer_conn.recv()
-	corner_br, corner_bl, corner_tl, corner_tr = find_board_corners(frame)
-	px2mm_mat = calc_px2mm([corner_bl, corner_br, corner_tr, corner_tl])
-	print(px2mm_mat)
+	while True:
+		frame, _ = consumer_conn.recv()
+		corner_br, corner_bl, corner_tl, corner_tr = find_board_corners(frame)
+		if check_corner_points(corner_br, corner_bl, corner_tl, corner_tr):
+			px2mm_mat = calc_px2mm([corner_bl, corner_br, corner_tr, corner_tl])
+			print(px2mm_mat)
+			break
 
 	for i in range(3):
 		frame, _ = consumer_conn.recv()

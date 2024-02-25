@@ -78,3 +78,19 @@ def process_frame(frame):
 	frame += 96
 	frame[frame < 96] = 255
 	return frame, torch.squeeze(TF.to_tensor(frame[PROCESSING_Y:PROCESSING_Y + PROCESSING_SIZE_HEIGHT, PROCESSING_X:PROCESSING_X + PROCESSING_SIZE_WIDTH].astype("float32") / 255).to(device))
+
+
+def calc_angle(a, b, c):
+	ba = a - b
+	bc = c - b
+	ba_n = ba / np.linalg.norm(ba)
+	bc_n = bc / np.linalg.norm(bc)
+	return np.arccos(np.clip(np.dot(ba_n, bc_n), -1.0, 1.0))
+
+
+def check_corner_points(corner_br, corner_bl, corner_tl, corner_tr):
+	angle_br = calc_angle(corner_bl, corner_br, corner_tr)
+	angle_bl = calc_angle(corner_tl, corner_bl, corner_br)
+	angle_tl = calc_angle(corner_tr, corner_tl, corner_bl)
+	angle_tr = calc_angle(corner_br, corner_tr, corner_tl)
+	return abs(math.pi / 2 - angle_br) < CORNER_ANGLE_MAX_DEVIATION and abs(math.pi / 2 - angle_bl) < CORNER_ANGLE_MAX_DEVIATION and abs(math.pi / 2 - angle_tl) < CORNER_ANGLE_MAX_DEVIATION and abs(math.pi / 2 - angle_tr) < CORNER_ANGLE_MAX_DEVIATION
