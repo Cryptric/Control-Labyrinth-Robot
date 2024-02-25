@@ -2,8 +2,11 @@ import pickle
 
 import cv2
 import numpy as np
+import torch
+import torchvision.transforms.functional as TF
 
-from Params import IMG_SIZE_X, IMG_SIZE_Y
+from CueNetV2 import device
+from Params import *
 
 with open("./camera_params.pkl", "rb") as f:
 	params = pickle.load(f)
@@ -66,5 +69,12 @@ def calc_px2mm(ps):
 def mapping_px2mm(homo, uv):
 	vec = np.array([[uv[0]], [uv[1]], [1]])
 	xy = np.matmul(homo, vec)
-	result = [xy[0][0] / xy[2][0], xy[1][0] / xy[2][0]]
+	result = xy[0][0] / xy[2][0], xy[1][0] / xy[2][0]
 	return result
+
+
+def process_frame(frame):
+	frame = remove_distortion(frame)
+	frame += 96
+	frame[frame < 96] = 255
+	return frame, torch.squeeze(TF.to_tensor(frame[PROCESSING_Y:PROCESSING_Y + PROCESSING_SIZE_HEIGHT, PROCESSING_X:PROCESSING_X + PROCESSING_SIZE_WIDTH].astype("float32") / 255).to(device))

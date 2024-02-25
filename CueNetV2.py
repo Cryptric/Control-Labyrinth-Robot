@@ -1,5 +1,7 @@
+import numpy as np
 import torch
 import torch.nn as nn
+from torch import Tensor
 
 CueNetV3_path = "Nets/pt-labi_CNN.pt"
 
@@ -109,6 +111,12 @@ class CueNetV2(nn.Module):
 		x = x.reshape(1, 180, 240)
 
 		return x
+
+	def calc_position_heatmap(self, frame1: Tensor, frame2: Tensor, frame3: Tensor) -> np.ndarray:
+		frame_stack = torch.unsqueeze(torch.stack((frame1, frame2, frame3)), 0)
+		with torch.no_grad():
+			output = self(frame_stack)
+		return output.cpu().detach().numpy()
 
 
 def load_cue_net_v2() -> CueNetV2:

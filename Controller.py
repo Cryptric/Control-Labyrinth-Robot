@@ -1,62 +1,60 @@
-from functools import partial
-from multiprocessing import Pipe, Process, Event
+import time
+from multiprocessing import Pipe, Process, Event, Queue
 from multiprocessing.connection import Connection
 from typing import List
 
 import matplotlib
 import numpy as np
-import torch
-import torchvision.transforms.functional as TF
-from matplotlib import patches
-from matplotlib import pyplot as plt
-from matplotlib.animation import FuncAnimation
-from matplotlib.image import AxesImage
-from matplotlib.lines import Line2D
+import serial
 from torch import Tensor
 
 import CueNetV2
 import Davis346Reader
-from CueNetV2 import device
+import Plotter
+from MPC import MPC
 from Params import *
-from utils.ControlUtils import find_center
-from utils.FrameUtils import remove_distortion, find_board_corners, calc_px2mm, mapping_px2mm
-from utils.Plotting import pr_cmap
+from utils.ControlUtils import find_center, send_control_signal, calc_speed
+from utils.FrameUtils import find_board_corners, calc_px2mm, mapping_px2mm, process_frame
 
 matplotlib.use('TkAgg')
 
 
-def calc_position_heatmap(frame1: Tensor, frame2: Tensor, frame3: Tensor, cue_net: CueNetV2) -> np.ndarray:
-	frame_stack = torch.unsqueeze(torch.stack((frame1, frame2, frame3)), 0)
-	with torch.no_grad():
-		output = cue_net(frame_stack)
-	return output.cpu().detach().numpy()
-
-
-def update(_, consumer_conn: Connection, frame_buffer: List[np.ndarray], cue_net: CueNetV2, img: AxesImage, pos_heatmap: AxesImage, ball_pos_plot: Line2D, stop_func):
+def update(consumer_conn: Connection, frame_buffer: List[Tensor], cue_net: CueNetV2, mpc_x, mpc_y, target_pos_x, target_pos_y, px2mm_mat, prev_pos_x, prev_pos_y, prev_signal_x, prev_signal_y, arduino, termination_event: Event, plot_queue: Queue):
 	if consumer_conn.poll():
 		try:
-			frame = consumer_conn.recv()
-			frame = remove_distortion(frame)
-			frame += 64
-			frame[frame < 64] = 255
-			img.set_array(frame)
-			new_frame = torch.squeeze(TF.to_tensor(frame[PROCESSING_Y:PROCESSING_Y + PROCESSING_SIZE_HEIGHT, PROCESSING_X:PROCESSING_X + PROCESSING_SIZE_WIDTH].astype("float32") / 255).to(device))
-			if len(frame_buffer) >= 2:
-				heatmap = calc_position_heatmap(frame_buffer[0], new_frame, frame_buffer.pop(0), cue_net)
-				heatmap = np.pad(heatmap[0], ((Y_EDGE // 2, Y_EDGE // 2), (X_EDGE // 2, X_EDGE // 2)))
-				pos_heatmap.set_array(heatmap)
-				vmin, vmax = heatmap.min(), heatmap.max()
-				pos_heatmap.set_clim(vmin=vmin, vmax=vmax)
+			frame, t = consumer_conn.recv()
+			frame, new_frame = process_frame(frame)
+			heatmap = cue_net.calc_position_heatmap(frame_buffer[0], new_frame, frame_buffer.pop(0))
+			heatmap = np.pad(heatmap[0], ((Y_EDGE // 2, Y_EDGE // 2), (X_EDGE // 2, X_EDGE // 2)))
+			x, y = find_center(heatmap)
 
-				x, y = find_center(heatmap)
-				ball_pos_plot.set_xdata(np.append(ball_pos_plot.get_xdata(), x))
-				ball_pos_plot.set_ydata(np.append(ball_pos_plot.get_ydata(), y))
 			frame_buffer.append(new_frame)
+
+			x_mm, y_mm = mapping_px2mm(px2mm_mat, [x, y])
+			dt = time.time() - t
+			speed_x, speed_y = calc_speed(x_mm, prev_pos_x, dt), calc_speed(y_mm, prev_pos_y, dt)
+
+			xk = np.array([x_mm, speed_x, prev_signal_x])
+			yk = np.array([y_mm, speed_y, prev_signal_y])
+
+			# print("position: {}, {}".format(x_mm, y_mm))
+			# print("target: {}, {}".format(target_pos_x, target_pos_y))
+			print("velocity: {}, {}".format(speed_x, speed_y))
+
+			signal_x_rad = mpc_x.get_control_signal(np.append(np.linspace(x_mm, target_pos_x, N - 1), np.array([target_pos_x, target_pos_x])), xk)[0]
+			signal_y_rad = mpc_y.get_control_signal(np.append(np.linspace(y_mm, target_pos_y, N - 1), np.array([target_pos_y, target_pos_y])), yk)[0]
+
+			signal_x_deg = signal_x_rad * 180 / math.pi
+			signal_y_deg = signal_y_rad * 180 / math.pi
+			send_control_signal(arduino, X_CONTROL_SIGNAL_HORIZONTAL + signal_x_deg, Y_CONTROL_SIGNAL_HORIZONTAL + signal_y_deg)
+
+			plot_queue.put_nowait((frame, heatmap, [x, y], [signal_x_deg, signal_y_deg], t))
+			return x_mm, y_mm, signal_x_deg, signal_y_deg
 		except EOFError:
 			print("Producer exited")
 			print("Shutting down")
-			stop_func()
-	return img, pos_heatmap, ball_pos_plot
+			termination_event.set()
+	return prev_pos_x, prev_pos_y, prev_signal_x, prev_signal_y
 
 
 def onclick(event, px2mm_mat):
@@ -68,14 +66,7 @@ def main():
 	cue_net = CueNetV2.load_cue_net_v2()
 	frame_buffer = []
 
-	fig, ax = plt.subplots()
-	img = ax.imshow(np.zeros((IMG_SIZE_Y, IMG_SIZE_X)), cmap="gray", vmin=0, vmax=255)
-	pos_heatmap = ax.imshow(np.zeros((IMG_SIZE_Y, IMG_SIZE_X)), cmap=pr_cmap, alpha=1)
-
-	ball_pos_plot, = ax.plot([], [], marker='o', label="Ball position", markersize=2, c="gray")
-
-	processing_section_marker = patches.Rectangle((PROCESSING_X, PROCESSING_Y), PROCESSING_SIZE_WIDTH, PROCESSING_SIZE_HEIGHT, linewidth=1, edgecolor='r', facecolor='none')
-	ax.add_patch(processing_section_marker)
+	arduino = serial.Serial('/dev/ttyUSB0', 115200, timeout=5)
 
 	consumer_conn, producer_conn = Pipe(False)
 	termination_event = Event()
@@ -84,23 +75,44 @@ def main():
 	producer_conn.close()
 
 	# Find board corners for calibration
-	corner_br, corner_bl, corner_tl, corner_tr = find_board_corners(consumer_conn.recv())
+	frame, _ = consumer_conn.recv()
+	corner_br, corner_bl, corner_tl, corner_tr = find_board_corners(frame)
 	px2mm_mat = calc_px2mm([corner_bl, corner_br, corner_tr, corner_tl])
 	print(px2mm_mat)
-	fig.canvas.mpl_connect('button_press_event', partial(onclick, px2mm_mat=px2mm_mat))
 
-	ax.scatter([corner_br[0], corner_bl[0], corner_tl[0], corner_tr[0]], [corner_br[1], corner_bl[1], corner_tl[1], corner_tr[1]], label="detected board corners")
+	for i in range(3):
+		frame, _ = consumer_conn.recv()
+		_, tensor_frame = process_frame(frame)
+		frame_buffer.append(tensor_frame)
 
-	def stop_anim():
-		anim.event_source.stop()
-		plt.close()
-	update_func = partial(update, consumer_conn=consumer_conn, frame_buffer=frame_buffer, cue_net=cue_net, img=img, pos_heatmap=pos_heatmap, ball_pos_plot=ball_pos_plot, stop_func=stop_anim)
-	anim = FuncAnimation(fig, update_func, cache_frame_data=False, interval=0)
+	target_pos_queue = Queue()
+	target_pos_x = 0
+	target_pos_y = 0
 
-	plt.show()
+	prev_pos_x = 0
+	prev_pos_y = 0
 
-	print("plot terminated, sending termination event")
-	termination_event.set()
+	prev_signal_x = 0
+	prev_signal_y = 0
+
+	plot_queue = Queue()
+	plot_process = Process(target=Plotter.plot, args=(plot_queue, termination_event, target_pos_queue, ["signal x", "signal y"], corner_br, corner_bl, corner_tl, corner_tr))
+	plot_process.start()
+
+	mpc_x = MPC()
+	mpc_y = MPC()
+
+	# clear pipe
+	while consumer_conn.poll():
+		consumer_conn.recv()
+
+	while not termination_event.is_set():
+		prev_pos_x, prev_pos_y, prev_signal_x, prev_signal_y = update(consumer_conn, frame_buffer, cue_net, mpc_x, mpc_y, target_pos_x, target_pos_y, px2mm_mat, prev_pos_x, prev_pos_y, prev_signal_x, prev_signal_y, arduino, termination_event, plot_queue)
+		if not target_pos_queue.empty():
+			x, y = target_pos_queue.get()
+			target_pos = mapping_px2mm(px2mm_mat, [x, y])
+			target_pos_x, target_pos_y = target_pos[0], target_pos[1]
+
 	# make sure pipe isn't full, such that producer can exit
 	while p.is_alive():
 		try:
@@ -110,6 +122,8 @@ def main():
 			break
 	consumer_conn.close()
 	p.join()
+	plot_process.join()
+	plot_queue.close()
 
 
 if __name__ == "__main__":

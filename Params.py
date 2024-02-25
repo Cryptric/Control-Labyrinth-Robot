@@ -1,3 +1,5 @@
+import math
+
 IMG_SIZE_X = 346
 IMG_SIZE_Y = 260
 
@@ -9,3 +11,19 @@ Y_EDGE = IMG_SIZE_Y - PROCESSING_SIZE_HEIGHT
 
 PROCESSING_X = X_EDGE // 2
 PROCESSING_Y = Y_EDGE // 2
+
+
+X_CONTROL_SIGNAL_HORIZONTAL = 81
+Y_CONTROL_SIGNAL_HORIZONTAL = 85
+
+K1 = 180
+K2 = -0.177
+G = 9.8 * 1000
+
+N = 10
+Q = 1
+R = 0.005
+
+U_min = -0.07
+U_max = 0.07
+du_max = 3 * math.pi / 180

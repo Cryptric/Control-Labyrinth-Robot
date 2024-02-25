@@ -59,3 +59,11 @@ def find_center(output, is_weighted=True):
 		x_t = x_t + 0.5 * xd
 		y_t = y_t + 0.5 * yd
 	return x_t, y_t
+
+
+def send_control_signal(arduino, angle_x, angle_y):
+	arduino.write(bytes("{},{};".format(angle_x, angle_y), 'utf-8'))
+
+
+def calc_speed(pos, prev_pos, dt):
+	return (pos - prev_pos) / dt
