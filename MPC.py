@@ -1,5 +1,6 @@
 import numpy as np
 from qpsolvers import solve_qp
+from scipy import sparse
 
 from Params import *
 
@@ -47,9 +48,12 @@ class MPC:
 			else:
 				self.GM[2 * (i - 1):2*(i + 1), i] = tmp
 
+		self.H_sparse = sparse.csr_matrix(self.H)
+		self.GM_sparse = sparse.csr_matrix(self.GM)
+
 	def get_control_signal(self, wk, xk):
 		g = self.S0.T @ self.Q.T @ (self.V0 @ xk - wk)
-		signal = solve_qp(self.H, g, G=self.GM, h=self.h, lb=self.lb, ub=self.ub, solver="osqp")
+		signal = solve_qp(self.H_sparse, g, G=self.GM_sparse, h=self.h, lb=self.lb, ub=self.ub, solver="osqp")
 		return signal
 
 	def get_predicted_state(self, xk, control_signal):
