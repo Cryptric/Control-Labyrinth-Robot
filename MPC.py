@@ -10,50 +10,40 @@ np.set_printoptions(threshold=np.inf, linewidth=np.inf)
 class MPC:
 	def __init__(self):
 		self.N = N
-		self.dt = 0.015
-		self.x0 = np.zeros((3, 1))
-		self.A = np.array([[1, self.dt, 0], [0, 1, 5/7 * G * K2 * self.dt], [0, 0, 1 - K1 * self.dt]])
-		self.B = np.array([[0], [0], [K1 * self.dt]])
-		self.C = np.array([[1, 0, 0]])
-		self.Q = Q * np.identity(N + 1)
-		self.R = R * np.identity(N)
-		self.w = np.zeros((self.N + 1, 1))
+		self.A = np.array([[1, dt, 0, 0], [0, 1, 0, 0], [0, 0, 1, dt], [0, 0, 0, 1]])
+		self.B = np.array([[0, 0], [dt * 5/7 * g * K_x, 0], [0, 0], [0, dt * 5/7 * g * K_y]])
+		self.C = np.array([[1, 0, 0, 0], [0, 0, 1, 0]])
+		self.Q = Q * np.identity(2 * N)
+		self.R = R * np.identity(2 * N)
 
-		self.V0 = np.zeros((N + 1, 3))
-		tmp = self.C
-		for i in range(N + 1):
-			self.V0[i] = tmp
-			tmp = tmp @ self.A
-		self.S0 = np.zeros((N + 1, N))
-		tmp = self.V0 @ self.B
+		self.V0 = np.zeros((2 * N, 4))
+		tmp = self.C @ self.A
 		for i in range(N):
-			self.S0[i + 1:, i] = tmp[0:N - i, 0]
+			self.V0[2 * i:2 * (i + 1)] = tmp
+			tmp = tmp @ self.A
 
-		self.H = self.S0.T @ self.Q @ self.S0 + self.R
-		self.g = self.S0.T @ self.Q @ (self.V0 @ self.x0 - self.w)
+		self.S0 = np.zeros((2 * N, 2 * N))
+		tmp = self.V0 @ self.B
+		# Just here for completeness, does nothing, C @ B = 0
+		CB = self.C @ self.B
+		for i in range(2 * N - 1):
+			self.S0[i+2:2 * N, i] = tmp[0:2 * N - (i + 2), 0]
+			self.S0[i:i+2, i:i+2] = CB
+		self.S0[2 * N - 2:2 * N, 2 * N - 2:2 * N] = CB
 
-		self.lb = np.ones(N) * U_min
-		self.ub = np.ones(N) * U_max
-		self.b = np.zeros(N)
-		self.h = np.ones(2 * N - 2) * du_max
-		self.AM = np.eye(N, N) - np.eye(N, N, 1)
-		self.AM[-1, -1] = 0
-		self.GM = np.zeros((2 * N - 2, N))
-		tmp = np.array([-1, 1, 1, -1])
-		for i in range(self.GM.shape[1]):
-			if i == 0:
-				self.GM[0:2, 0] = tmp[2:4]
-			elif i == self.GM.shape[1] - 1:
-				self.GM[self.GM.shape[0] - 2:self.GM.shape[0], -1] = tmp[0:2]
-			else:
-				self.GM[2 * (i - 1):2*(i + 1), i] = tmp
+		self.P = self.S0.T @ self.Q @ self.S0 + self.R
 
-		self.H_sparse = sparse.csr_matrix(self.H)
-		self.GM_sparse = sparse.csr_matrix(self.GM)
+		self.lb = np.ones(2 * N) * U_min
+		self.ub = np.ones(2 * N) * U_max
+
+		self.P_sparse = sparse.csr_matrix(self.P)
+
+	def calc_q(self, xk, wk_N):
+		return self.S0.T @ self.Q @ (self.V0 @ xk - wk_N)
 
 	def get_control_signal(self, wk, xk):
-		g = self.S0.T @ self.Q.T @ (self.V0 @ xk - wk)
-		signal = solve_qp(self.H_sparse, g, G=self.GM_sparse, h=self.h, lb=self.lb, ub=self.ub, solver="osqp")
+		q = self.calc_q(xk, wk)
+		signal = solve_qp(P=self.P_sparse, q=q, lb=self.lb, ub=self.ub, solver="osqp")
 		return signal
 
 	def get_predicted_state(self, xk, control_signal):

@@ -18,11 +18,14 @@ Y_CONTROL_SIGNAL_HORIZONTAL = 85
 
 CORNER_ANGLE_MAX_DEVIATION = 0.1
 
-K1 = 180
-K2 = -0.177
-G = 9.8 * 1000
+K_x = -0.177
+K_y = -0.177
 
-N = 10
+g = 9.8 * 1000
+
+dt = 0.03
+
+N = 35
 Q = 1
 R = 0.005
 

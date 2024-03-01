@@ -1,4 +1,8 @@
+from math import sqrt
+
 import numpy as np
+
+from Params import *
 
 
 def round8(v):
@@ -67,3 +71,41 @@ def send_control_signal(arduino, angle_x, angle_y):
 
 def calc_speed(pos, prev_pos, dt):
 	return (pos - prev_pos) / dt
+
+
+def solve_quad(a, b, c):
+	r = sqrt(b ** 2 - 4 * a * c)
+	x1 = (-b + r) / (2 * a)
+	x2 = (-b - r) / (2 * a)
+	return x1, x2
+
+
+def quad_space(start, stop, num, a1=1, b1=0, a2=1, b2=0):
+
+	fx2 = 4 * a1 * a2
+	fx1 = 4 * a2 * b1 - 4 * a1 * b2
+	fx0 = (b1 - b2) ** 2 - 4 * (a1 - a2) * (start - stop)
+	s_1, s_2 = solve_quad(fx2, fx1, fx0)
+
+	s = s_1 if s_1 > s_2 else s_2
+	x0 = - (b1 + 2 * a2 * s - b2) / (2 * (a1 - a2))
+
+	x = np.linspace(0, abs(s), num)
+	x_p1 = x[x <= x0]
+	x_p2 = x[x > x0]
+
+	y_p1 = a1 * x_p1 ** 2 + b1 * x_p1 + start
+	y_p2 = a2 * (x_p2 - s) ** 2 + b2 * (x_p2 - s) + stop
+
+	return np.append(y_p1, y_p2)
+
+
+def calc_num_move_points(distance):
+	return min(N, round(0.2 * distance / dt))
+
+
+def gen_reference_path(pos, target):
+	num_move_points = calc_num_move_points(abs(pos - target))
+	move_points = np.linspace(pos, target, num_move_points)
+	stationary_points = np.ones((N - num_move_points)) * target
+	return np.append(move_points, stationary_points)
