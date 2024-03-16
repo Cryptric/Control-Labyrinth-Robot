@@ -101,7 +101,7 @@ def quad_space(start, stop, num, a1=1, b1=0, a2=1, b2=0):
 
 
 def calc_num_move_points(distance):
-	return min(N, round(0.2 * distance / dt))
+	return min(N, round(0.005 * distance / dt))
 
 
 def gen_reference_path(pos, target):
@@ -109,3 +109,11 @@ def gen_reference_path(pos, target):
 	move_points = np.linspace(pos, target, num_move_points)
 	stationary_points = np.ones((N - num_move_points)) * target
 	return np.append(move_points, stationary_points)
+
+
+def gen_circ():
+	n = 300
+	w_x = np.cos(np.linspace(0, 2 * np.pi, n, endpoint=False)) * 90 + 150
+	w_y = np.sin(np.linspace(0, 2 * np.pi, n, endpoint=False)) * 90 + 110
+	w = np.stack((w_x, w_y), axis=1)
+	return w
