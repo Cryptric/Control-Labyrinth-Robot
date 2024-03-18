@@ -73,6 +73,15 @@ def mapping_px2mm(homo, uv):
 	return result
 
 
+def mapping_mm2px(homo, xy):
+	x = xy[0]
+	y = xy[1]
+	vec = np.array([[homo[0][2]-x], [homo[1][2]-y]])
+	m = np.array([[homo[2][0]*x-homo[0][0], homo[2][1]*x-homo[0][1]], [homo[2][0]*y-homo[1][0], homo[2][1]*y-homo[1][1]]])
+	rm = np.linalg.inv(m)
+	uv = np.matmul(rm, vec)
+	return [uv[0][0], uv[1][0]]
+
 def process_frame(frame):
 	frame = remove_distortion(frame)
 	frame += 96

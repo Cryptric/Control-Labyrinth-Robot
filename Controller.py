@@ -15,7 +15,8 @@ import Plotter
 from MPC import MPC
 from Params import *
 from utils.ControlUtils import find_center, send_control_signal, calc_speed, gen_reference_path, gen_circ
-from utils.FrameUtils import find_board_corners, calc_px2mm, mapping_px2mm, process_frame, check_corner_points
+from utils.FrameUtils import find_board_corners, calc_px2mm, mapping_px2mm, process_frame, check_corner_points, \
+	mapping_mm2px
 
 matplotlib.use('TkAgg')
 
@@ -41,12 +42,8 @@ def update(consumer_conn: Connection, frame_buffer: List[Tensor], cue_net: CueNe
 			xk_x = np.array([x_mm, speed_x])
 			xk_y = np.array([y_mm, speed_y])
 
-			# print("position: {}, {}".format(x_mm, y_mm))
-			# print("target: {}, {}".format(target_pos_x, target_pos_y))
-			# print("velocity: {}, {}".format(speed_x, speed_y))
 			w_x = gen_reference_path(x_mm, target_pos_x)
 			w_y = gen_reference_path(y_mm, target_pos_y)
-			w = np.stack((w_x, w_y), axis=1)
 			# print(w_circ)
 			# signal_x_rad = mpc_x.get_control_signal(w_x, xk_x)[0]
 			# signal_y_rad = mpc_y.get_control_signal(w_y, xk_y)[0]
@@ -57,7 +54,8 @@ def update(consumer_conn: Connection, frame_buffer: List[Tensor], cue_net: CueNe
 			signal_y_deg = signal_y_rad * 180 / math.pi
 			send_control_signal(arduino, X_CONTROL_SIGNAL_HORIZONTAL + signal_x_deg, Y_CONTROL_SIGNAL_HORIZONTAL + signal_y_deg)
 
-			plot_queue.put_nowait((frame, heatmap, [x, y], [signal_x_deg, signal_y_deg], t))
+			ref_trajectory = np.array([mapping_mm2px(px2mm_mat, w_circ[i]) for i in range(N)])
+			plot_queue.put_nowait((frame, heatmap, [x, y], [ref_trajectory[:, 0], ref_trajectory[:, 1]], [signal_x_deg, signal_y_deg], t))
 			w_circ = np.roll(w_circ, -1, axis=0)
 			return x_mm, y_mm, signal_x_deg, signal_y_deg
 		except EOFError:
