@@ -3,8 +3,6 @@ from multiprocessing import Pipe, Process, Event, Queue
 from multiprocessing.connection import Connection
 from typing import List
 
-import cv2
-import matplotlib
 import numpy as np
 import serial
 from torch import Tensor
@@ -18,7 +16,6 @@ from utils.ControlUtils import find_center, send_control_signal, calc_speed, gen
 from utils.FrameUtils import find_board_corners, calc_px2mm, mapping_px2mm, process_frame, check_corner_points, \
 	mapping_mm2px
 
-matplotlib.use('TkAgg')
 
 w_circ = gen_circ()
 
