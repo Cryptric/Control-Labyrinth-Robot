@@ -51,6 +51,8 @@ class MPC:
 
 if __name__ == '__main__':
 	mpc = MPC(K_x)
-	w = np.array([10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10])
-	x = np.array([1, 1, 0])
+	w = np.array(np.ones(N) * 10)
+	x = np.array([1, 1])
 	print(mpc.get_control_signal(w, x))
+	print()
+	print(mpc.get_predicted_state(x, mpc.get_control_signal(w, x)).shape)

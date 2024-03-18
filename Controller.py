@@ -47,15 +47,20 @@ def update(consumer_conn: Connection, frame_buffer: List[Tensor], cue_net: CueNe
 			# print(w_circ)
 			# signal_x_rad = mpc_x.get_control_signal(w_x, xk_x)[0]
 			# signal_y_rad = mpc_y.get_control_signal(w_y, xk_y)[0]
-			signal_x_rad = mpc_x.get_control_signal(w_circ[0:N, 0], xk_x)[0]
-			signal_y_rad = mpc_y.get_control_signal(w_circ[0:N, 1], xk_y)[0]
+			signal_x_rad = mpc_x.get_control_signal(w_circ[0:N, 0], xk_x)
+			signal_y_rad = mpc_y.get_control_signal(w_circ[0:N, 1], xk_y)
 
-			signal_x_deg = signal_x_rad * 180 / math.pi
-			signal_y_deg = signal_y_rad * 180 / math.pi
+			signal_x_deg = signal_x_rad[0] * 180 / math.pi
+			signal_y_deg = signal_y_rad[0] * 180 / math.pi
 			send_control_signal(arduino, X_CONTROL_SIGNAL_HORIZONTAL + signal_x_deg, Y_CONTROL_SIGNAL_HORIZONTAL + signal_y_deg)
 
 			ref_trajectory = np.array([mapping_mm2px(px2mm_mat, w_circ[i]) for i in range(N)])
-			plot_queue.put_nowait((frame, heatmap, [x, y], [ref_trajectory[:, 0], ref_trajectory[:, 1]], [signal_x_deg, signal_y_deg], t))
+			predicted_state_x = mpc_x.get_predicted_state(xk_x, signal_x_rad)
+			predicted_state_y = mpc_y.get_predicted_state(xk_y, signal_y_rad)
+
+			pred_trajectory = np.array([mapping_mm2px(px2mm_mat, (predicted_state_x[i], predicted_state_y[i])) for i in range(N)])
+
+			plot_queue.put_nowait((frame, heatmap, [x, y], [ref_trajectory[:, 0], ref_trajectory[:, 1]], [pred_trajectory[:, 0], pred_trajectory[:, 1]], [signal_x_deg, signal_y_deg], t))
 			w_circ = np.roll(w_circ, -1, axis=0)
 			return x_mm, y_mm, signal_x_deg, signal_y_deg
 		except EOFError:
