@@ -60,7 +60,7 @@ def update(consumer_conn: Connection, frame_buffer: List[Tensor], cue_net: CueNe
 
 			pred_trajectory = np.array([mapping_mm2px(px2mm_mat, (predicted_state_x[i], predicted_state_y[i])) for i in range(N)])
 
-			plot_queue.put_nowait((frame, heatmap, [x, y], [ref_trajectory[:, 0], ref_trajectory[:, 1]], [pred_trajectory[:, 0], pred_trajectory[:, 1]], [signal_x_deg, signal_y_deg], t))
+			plot_queue.put_nowait((frame, heatmap, [x, y], [ref_trajectory[:, 0], ref_trajectory[:, 1]], [pred_trajectory[:, 0], pred_trajectory[:, 1]], [signal_x_deg, signal_y_deg], [speed_x, speed_y], t))
 			w_circ = np.roll(w_circ, -1, axis=0)
 			return x_mm, y_mm, signal_x_deg, signal_y_deg
 		except EOFError:
