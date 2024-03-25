@@ -13,7 +13,7 @@ def main():
 	fig, axes = plt.subplots(nrows=2)
 
 	for data, coef, ax in zip([data_x, data_y], [coef_x, coef_y], axes):
-		ax.scatter(data[:, 0], data[:, 1], label="Data", marker="x", c="r")
+		ax.plot(data[:, 0], data[:, 1], label="Data", marker="x", c="r")
 		ax.plot(data[:, 0], data[:, 0] * coef[0], label="Fitted Line")
 		ax.set_ylabel("Board tilt [°]")
 		ax.set_xlabel("Servo angle [°]")

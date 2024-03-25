@@ -1,3 +1,4 @@
+import pickle
 import time
 from multiprocessing import Pipe, Process, Event, Queue
 from multiprocessing.connection import Connection
@@ -19,9 +20,15 @@ from utils.FrameUtils import find_board_corners, calc_px2mm, mapping_px2mm, proc
 
 w_circ = gen_circ()
 
+# tuple, of (system state, reference trajectory, predicted trajectory)
+recorded_data_x = []
+recorded_data_y = []
+
 
 def update(consumer_conn: Connection, frame_buffer: List[Tensor], cue_net: CueNetV2, mpc_x, mpc_y, target_pos_x, target_pos_y, px2mm_mat, prev_pos_x, prev_pos_y, prev_signal_x, prev_signal_y, arduino, termination_event: Event, plot_queue: Queue):
 	global w_circ
+	global recorded_data_x
+	global recorded_data_y
 	if consumer_conn.poll():
 		try:
 			frame, t = consumer_conn.recv()
@@ -59,6 +66,11 @@ def update(consumer_conn: Connection, frame_buffer: List[Tensor], cue_net: CueNe
 
 			plot_queue.put_nowait((frame, heatmap, [x, y], [ref_trajectory[:, 0], ref_trajectory[:, 1]], [pred_trajectory[:, 0], pred_trajectory[:, 1]], [signal_x_deg, signal_y_deg], [speed_x, speed_y], t))
 			w_circ = np.roll(w_circ, -1, axis=0)
+
+			# recording
+			recorded_data_x.append((xk_x, w_circ[0:N, 0], predicted_state_x))
+			recorded_data_y.append((xk_y, w_circ[0:N, 1], predicted_state_y))
+
 			return x_mm, y_mm, signal_x_deg, signal_y_deg
 		except EOFError:
 			print("Producer exited")
@@ -137,6 +149,12 @@ def main():
 	p.join()
 	plot_process.join()
 	plot_queue.close()
+
+	with open("recorded_x.pkl", 'wb') as f:
+		pickle.dump(recorded_data_x, f, pickle.HIGHEST_PROTOCOL)
+
+	with open("recorded_y.pkl", 'wb') as f:
+		pickle.dump(recorded_data_y, f, pickle.HIGHEST_PROTOCOL)
 
 
 if __name__ == "__main__":
