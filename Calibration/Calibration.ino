@@ -90,14 +90,11 @@ void perform_measurement(Servo& servo, int alpha, int idle_position) {
 }
 
 void perform_routine(Servo& servo, int idle_position) {
-    int alpha = idle_position;
-    for (; alpha < idle_position + SERVO_MAX_DISPLACEMENT; alpha++) {
-        perform_measurement(servo, alpha, idle_position);
-    }
+    int alpha = idle_position + SERVO_MAX_DISPLACEMENT;
     for (; alpha > idle_position - SERVO_MAX_DISPLACEMENT; alpha--) {
         perform_measurement(servo, alpha, idle_position);
     }
-    for (; alpha <= idle_position; alpha++) {
+    for (; alpha <= idle_position + SERVO_MAX_DISPLACEMENT; alpha++) {
         perform_measurement(servo, alpha, idle_position);
     }
 }
@@ -123,10 +120,12 @@ void setup() {
     Serial.println("Measure Servo X");
     perform_routine(servo_x, SERVO_X_IDLE_ANGLE);
 
-    delay(SERVO_WAIT_TIME);
+    servo_x.write(SERVO_X_IDLE_ANGLE);
+    delay(2 * SERVO_WAIT_TIME);
     readAccelerometer(reference_vector, reference_vector + 1, reference_vector + 2, 10);
     delay(SERVO_WAIT_TIME);
 
+    
     Serial.println("Measure Servo Y");
     perform_routine(servo_y, SERVO_Y_IDLE_ANGLE);
 }
