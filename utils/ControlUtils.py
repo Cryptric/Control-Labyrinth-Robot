@@ -48,6 +48,10 @@ def find_center(output, is_weighted=True):
 	return x_t, y_t
 
 
+def map_value_range(x, in_min, in_max, out_min, out_max):
+	return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min
+
+
 def send_control_signal(arduino, angle_x, angle_y):
 	global prev_x_angles
 	global prev_y_angles
@@ -62,7 +66,12 @@ def send_control_signal(arduino, angle_x, angle_y):
 
 	angle_x = angle_x + X_CONTROL_SIGNAL_HORIZONTAL
 	angle_y = angle_y + Y_CONTROL_SIGNAL_HORIZONTAL
-	arduino.write(bytes("{},{};".format(angle_x, angle_y), 'utf-8'))
+
+	# map servo angle to pulse width
+	pw_x = map_value_range(angle_x, 0, 180, SERVO_MIN_PULSE_WIDTH, SERVO_MAX_PULSE_WIDTH)
+	pw_y = map_value_range(angle_y, 0, 180, SERVO_MIN_PULSE_WIDTH, SERVO_MAX_PULSE_WIDTH)
+
+	arduino.write(bytes("{},{};".format(pw_x, pw_y), 'utf-8'))
 
 
 def get_backlash_compensation_term(prev_angles, angle, backlash_table):

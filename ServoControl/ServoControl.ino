@@ -4,10 +4,10 @@
 #define SERVO_X_IDLE_ANGLE 82
 #define SERVO_Y_IDLE_ANGLE 86
 
-#define SERVO_MIN_ANGLE 70
-#define SERVO_MAX_ANGLE 110
+#define SERVO_MIN_PW 1265
+#define SERVO_MAX_PW 1678
 
-#define CHECK_SERVO_ANGLE(angle) (SERVO_MIN_ANGLE <= angle && angle <= SERVO_MAX_ANGLE)
+#define CHECK_SERVO_PW(angle) (SERVO_MIN_PW <= angle && angle <= SERVO_MAX_PW)
 
 
 Servo servo_x;
@@ -30,9 +30,9 @@ void loop() {
         int x_val = (int) servoControls.substring(0, xy_separator_position).toInt();
         int y_val = (int) servoControls.substring(xy_separator_position + 1).toInt();
 
-        if (CHECK_SERVO_ANGLE(x_val) && CHECK_SERVO_ANGLE(y_val)) {
-            servo_x.write(x_val);
-            servo_y.write(y_val);
+        if (CHECK_SERVO_PW(x_val) && CHECK_SERVO_PW(y_val)) {
+            servo_x.writeMicroseconds(x_val);
+            servo_y.writeMicroseconds(y_val);
             Serial.println("Set servo angles");
         } else {
             Serial.print("ERROR: Angle out of range: ");
