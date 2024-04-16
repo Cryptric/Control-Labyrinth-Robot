@@ -21,12 +21,11 @@ def remove_distortion(frame):
 
 
 def find_board_corners(frame):
-	frame = remove_distortion(frame)
+	frame, _ = process_frame(frame)
+	frame = frame.astype(np.uint8)
 
-	min_x, max_x = 94, 288
-	min_y, max_y = 45, 212
 	mask = np.zeros((IMG_SIZE_Y, IMG_SIZE_X))
-	mask[min_y:max_y, min_x:max_x] = 1
+	mask[CORNER_MASK_MIN_Y:CORNER_MASK_MAX_Y, CORNER_MASK_MIN_X:CORNER_MASK_MAX_X] = 1
 
 	dst = cv2.cornerHarris(frame, 2, 5, 0.04)
 	dst = cv2.dilate(dst, None)
@@ -82,10 +81,11 @@ def mapping_mm2px(homo, xy):
 	uv = np.matmul(rm, vec)
 	return [uv[0][0], uv[1][0]]
 
+
 def process_frame(frame):
 	frame = remove_distortion(frame)
-	frame += 96
-	frame[frame < 96] = 255
+	# values for 2000 exposure
+	frame = np.clip(frame.astype(np.uint16) * 3.7 + 120, 0, 255)
 	return frame, torch.squeeze(TF.to_tensor(frame[PROCESSING_Y:PROCESSING_Y + PROCESSING_SIZE_HEIGHT, PROCESSING_X:PROCESSING_X + PROCESSING_SIZE_WIDTH].astype("float32") / 255).to(device))
 
 

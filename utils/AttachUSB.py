@@ -5,8 +5,8 @@ import subprocess
 DAVIS_CONNECTED_REGEX = r"\d*-\d*\s*[\da-f]*:[\da-f]*\s*DAVIS\sBLUE\s346"
 DAVIS_ATTACHED_REGEX = r"\d*-\d*\s*[\da-f]*:[\da-f]*\s*DAVIS\sBLUE\s346\s*Attached"
 
-ARDUINO_CONNECTED_REGEX = r"\d*-\d*\s*[\da-f]*:[\da-f]*\s*USB-SERIAL\sCH340\s\(COM4\)"
-ARDUINO_ATTACHED_REGEX = r"\d*-\d*\s*[\da-f]*:[\da-f]*\s*USB-SERIAL\sCH340\s\(COM4\)\s*Attached"
+ARDUINO_CONNECTED_REGEX = r"\d*-\d*\s*[\da-f]*:[\da-f]*\s*USB\-SERIAL CH340 \(COM4\)"
+ARDUINO_ATTACHED_REGEX = r"\d*-\d*\s*[\da-f]*:[\da-f]*\s*USB\-SERIAL CH340 \(COM4\)\s*Attached"
 
 
 def check_device_attached(usbipd_list_output, regex) -> bool:
@@ -27,7 +27,7 @@ def connect_device(device_name, usbipd_list_output, connected_regex, attached_re
 		davis_attached = check_device_attached(usbipd_list_output, attached_regex)
 		if not davis_attached:
 			device_busid = get_device_busid(usbipd_list_output, connected_regex)
-			print("Found DAVIS at busid {}".format(device_busid))
+			print("Found {} at busid {}".format(device_name, device_busid))
 			subprocess.run(["usbipd", "attach", "--wsl", "--busid", device_busid])
 			print("device attached")
 		else:

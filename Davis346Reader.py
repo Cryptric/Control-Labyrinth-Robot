@@ -6,6 +6,8 @@ from pyaer.davis import DAVIS
 from multiprocessing import Event
 from multiprocessing.connection import Connection
 
+from utils.ControlUtils import Timer, timers, print_timers
+
 
 def run(producer_conn: Connection, termination_event: Event):
 	device = None
@@ -31,13 +33,15 @@ def run(producer_conn: Connection, termination_event: Event):
 		device.set_bias_from_json("./davis346_config.json")
 
 		while not termination_event.is_set():
-			data = device.get_event()
-			if data is not None:
-				(_, _, _, _, _, frames, _, _) = data
-				if (not isinstance(frames, int)) and frames.shape[0] != 0:
-					producer_conn.send((frames[0], time.time()))
+			with Timer("davis capture"):
+				data = device.get_event()
+				if data is not None:
+					(_, _, _, _, _, frames, _, _) = data
+					if (not isinstance(frames, int)) and frames.shape[0] != 0:
+						producer_conn.send((frames[0], time.time()))
 
 	finally:
+		print_timers()
 		termination_event.set()
 		producer_conn.close()
 		if device is not None:

@@ -13,7 +13,8 @@ import Davis346Reader
 import Plotter
 from MPC import MPC
 from Params import *
-from utils.ControlUtils import find_center, send_control_signal, calc_speed, gen_reference_path, gen_circ
+from utils.ControlUtils import find_center, send_control_signal, calc_speed, gen_reference_path, gen_circ, Timer, \
+	print_timers
 from utils.FrameUtils import find_board_corners, calc_px2mm, mapping_px2mm, process_frame, check_corner_points, \
 	mapping_mm2px
 
@@ -30,52 +31,53 @@ def update(consumer_conn: Connection, frame_buffer: List[Tensor], cue_net: CueNe
 	global recorded_data_x
 	global recorded_data_y
 	if consumer_conn.poll():
-		try:
-			frame, t = consumer_conn.recv()
-			frame, new_frame = process_frame(frame)
-			heatmap = cue_net.calc_position_heatmap(new_frame, frame_buffer.pop(0), frame_buffer[0])
-			heatmap = np.pad(heatmap[0], ((Y_EDGE // 2, Y_EDGE // 2), (X_EDGE // 2, X_EDGE // 2)))
-			x, y = find_center(heatmap)
+		with Timer("control loop"):
+			try:
+				frame, t = consumer_conn.recv()
+				frame, new_frame = process_frame(frame)
+				heatmap = cue_net.calc_position_heatmap(new_frame, frame_buffer.pop(0), frame_buffer[0])
+				heatmap = np.pad(heatmap[0], ((Y_EDGE // 2, Y_EDGE // 2), (X_EDGE // 2, X_EDGE // 2)))
+				x, y = find_center(heatmap)
 
-			frame_buffer.append(new_frame)
+				frame_buffer.append(new_frame)
 
-			x_mm, y_mm = mapping_px2mm(px2mm_mat, [x, y])
-			dt = time.time() - t
-			speed_x, speed_y = calc_speed(x_mm, prev_pos_x, dt), calc_speed(y_mm, prev_pos_y, dt)
+				x_mm, y_mm = mapping_px2mm(px2mm_mat, [x, y])
+				dt = time.time() - t
+				speed_x, speed_y = calc_speed(x_mm, prev_pos_x, dt), calc_speed(y_mm, prev_pos_y, dt)
 
-			xk_x = np.array([x_mm, speed_x])
-			xk_y = np.array([y_mm, speed_y])
+				xk_x = np.array([x_mm, speed_x])
+				xk_y = np.array([y_mm, speed_y])
 
-			w_x = gen_reference_path(x_mm, target_pos_x)
-			w_y = gen_reference_path(y_mm, target_pos_y)
-			# print(w_circ)
-			# signal_x_rad = mpc_x.get_control_signal(w_x, xk_x)[0]
-			# signal_y_rad = mpc_y.get_control_signal(w_y, xk_y)[0]
-			signal_x_rad = mpc_x.get_control_signal(w_circ[0:N, 0], xk_x)
-			signal_y_rad = mpc_y.get_control_signal(w_circ[0:N, 1], xk_y)
+				w_x = gen_reference_path(x_mm, target_pos_x)
+				w_y = gen_reference_path(y_mm, target_pos_y)
+				# print(w_circ)
+				# signal_x_rad = mpc_x.get_control_signal(w_x, xk_x)[0]
+				# signal_y_rad = mpc_y.get_control_signal(w_y, xk_y)[0]
+				signal_x_rad = mpc_x.get_control_signal(w_circ[0:N, 0], xk_x)
+				signal_y_rad = mpc_y.get_control_signal(w_circ[0:N, 1], xk_y)
 
-			signal_x_deg = signal_x_rad[0] * 180 / math.pi
-			signal_y_deg = signal_y_rad[0] * 180 / math.pi
-			send_control_signal(arduino, X_CONTROL_SIGNAL_HORIZONTAL + signal_x_deg, Y_CONTROL_SIGNAL_HORIZONTAL + signal_y_deg)
+				signal_x_deg = signal_x_rad[0] * 180 / math.pi
+				signal_y_deg = signal_y_rad[0] * 180 / math.pi
+				send_control_signal(arduino, signal_x_deg, signal_y_deg)
 
-			ref_trajectory = np.array([mapping_mm2px(px2mm_mat, w_circ[i]) for i in range(N)])
-			predicted_state_x = mpc_x.get_predicted_state(xk_x, signal_x_rad)
-			predicted_state_y = mpc_y.get_predicted_state(xk_y, signal_y_rad)
+				ref_trajectory = np.array([mapping_mm2px(px2mm_mat, w_circ[i]) for i in range(N)])
+				predicted_state_x = mpc_x.get_predicted_state(xk_x, signal_x_rad)
+				predicted_state_y = mpc_y.get_predicted_state(xk_y, signal_y_rad)
 
-			pred_trajectory = np.array([mapping_mm2px(px2mm_mat, (predicted_state_x[i], predicted_state_y[i])) for i in range(N)])
+				pred_trajectory = np.array([mapping_mm2px(px2mm_mat, (predicted_state_x[i], predicted_state_y[i])) for i in range(N)])
 
-			plot_queue.put_nowait((frame, heatmap, [x, y], [ref_trajectory[:, 0], ref_trajectory[:, 1]], [pred_trajectory[:, 0], pred_trajectory[:, 1]], [signal_x_deg, signal_y_deg], [speed_x, speed_y], t))
-			w_circ = np.roll(w_circ, -1, axis=0)
+				plot_queue.put_nowait((frame, heatmap, [x, y], [ref_trajectory[:, 0], ref_trajectory[:, 1]], [pred_trajectory[:, 0], pred_trajectory[:, 1]], [signal_x_deg, signal_y_deg], [speed_x, speed_y], t))
+				w_circ = np.roll(w_circ, -1, axis=0)
 
-			# recording
-			recorded_data_x.append((xk_x, w_circ[0:N, 0], predicted_state_x))
-			recorded_data_y.append((xk_y, w_circ[0:N, 1], predicted_state_y))
+				# recording
+				recorded_data_x.append((xk_x, w_circ[0:N, 0], predicted_state_x))
+				recorded_data_y.append((xk_y, w_circ[0:N, 1], predicted_state_y))
 
-			return x_mm, y_mm, signal_x_deg, signal_y_deg
-		except EOFError:
-			print("Producer exited")
-			print("Shutting down")
-			termination_event.set()
+				return x_mm, y_mm, signal_x_deg, signal_y_deg
+			except EOFError:
+				print("Producer exited")
+				print("Shutting down")
+				termination_event.set()
 	return prev_pos_x, prev_pos_y, prev_signal_x, prev_signal_y
 
 
@@ -86,6 +88,7 @@ def onclick(event, px2mm_mat):
 
 def main():
 	cue_net = CueNetV2.load_cue_net_v2()
+	cue_net.warmup()
 	frame_buffer = []
 
 	arduino = serial.Serial('/dev/ttyUSB0', 115200, timeout=5)
@@ -146,6 +149,9 @@ def main():
 		except EOFError:
 			break
 	consumer_conn.close()
+
+	print_timers()
+
 	p.join()
 	plot_process.join()
 	plot_queue.close()

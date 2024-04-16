@@ -1,33 +1,16 @@
+import time
 from math import sqrt
 
 import numpy as np
+from engineering_notation import EngNumber as eng
 
 from Params import *
 
 
-def round8(v):
-	low = int(v * 10000)
-	dd = low % 10000
-	re = (low - low % 10000) / 10000
-	if dd < 625:
-		return re
-	elif dd >= 625 and dd < 1875:
-		return re + 0.125
-	elif dd >= 1875 and dd < 3125:
-		return re + 0.25
-	elif dd >= 3125 and dd < 4375:
-		return re + 0.375
-	elif dd >= 4375 and dd < 5625:
-		return re + 0.5
-	elif dd >= 5625 and dd < 6875:
-		return re + 0.625
-	elif dd >= 6875 and dd < 8125:
-		return re + 0.75
-	elif dd >= 8125 and dd < 9375:
-		return re + 0.875
-	else:
-		return re + 1.0
-
+# TODO refactor this, utility functions should not manage/contain state
+# always length 2, and index 1 hold most recent angle
+prev_x_angles = [0, 0]
+prev_y_angles = [0, 0]
 
 def find_center(output, is_weighted=True):
 	center_output = np.where(output == np.amax(output))
@@ -43,8 +26,8 @@ def find_center(output, is_weighted=True):
 			xsum += output[y][x] * x
 			ysum += output[y][x] * y
 			msum += output[y][x]
-	xr = round8(xsum / msum)
-	yr = round8(ysum / msum)
+	xr = (xsum / msum)
+	yr = (ysum / msum)
 	v = output[y_t][x_t]
 	if is_weighted:
 		return xr, yr
@@ -66,7 +49,28 @@ def find_center(output, is_weighted=True):
 
 
 def send_control_signal(arduino, angle_x, angle_y):
+	global prev_x_angles
+	global prev_y_angles
+
+	# angle_x = angle_x + get_backlash_compensation_term(prev_x_angles, angle_x, servo_backlash_x)
+	# angle_y = angle_y + get_backlash_compensation_term(prev_y_angles, angle_y, servo_backlash_y)
+
+	# prev_x_angles.append(angle_x)
+	# prev_x_angles.pop(0)
+	# prev_y_angles.append(angle_y)
+	# prev_y_angles.pop(0)
+
+	angle_x = angle_x + X_CONTROL_SIGNAL_HORIZONTAL
+	angle_y = angle_y + Y_CONTROL_SIGNAL_HORIZONTAL
 	arduino.write(bytes("{},{};".format(angle_x, angle_y), 'utf-8'))
+
+
+def get_backlash_compensation_term(prev_angles, angle, backlash_table):
+	prev_dir = np.sign(prev_angles[1] - prev_angles[0])
+	current_dir = np.sign(angle - prev_angles[1])
+	if prev_dir != current_dir:
+		return -current_dir * backlash_table[round(prev_angles[1])]
+	return 0
 
 
 def calc_speed(pos, prev_pos, dt):
@@ -112,8 +116,86 @@ def gen_reference_path(pos, target):
 
 
 def gen_circ():
-	n = 300
+	n = 450
 	w_x = np.cos(np.linspace(0, 2 * np.pi, n, endpoint=False)) * 90 + 150
 	w_y = np.sin(np.linspace(0, 2 * np.pi, n, endpoint=False)) * 90 + 140
 	w = np.stack((w_x, w_y), axis=1)
 	return w
+
+timers = {}
+times = {}
+enter_times = {}
+class Timer:
+	def __init__(self, timer_name='', delay=None, show_hist=False, numpy_file=None):
+		""" Make a Timer() in a _with_ statement for a block of code.
+		The timer is started when the block is entered and stopped when exited.
+		The Timer _must_ be used in a with statement.
+
+		:param timer_name: the str by which this timer is repeatedly called and which it is named when summary is printed on exit
+		:param delay: set this to a value to simply accumulate this externally determined interval
+		:param show_hist: whether to plot a histogram with pyplot
+		:param numpy_file: optional numpy file path
+		"""
+		self.timer_name = timer_name
+		self.show_hist = show_hist
+		self.numpy_file = numpy_file
+		self.delay = delay
+
+		if self.timer_name not in timers.keys():
+			timers[self.timer_name] = self
+		if self.timer_name not in times.keys():
+			times[self.timer_name] = []
+			enter_times[self.timer_name] = []
+
+	def __enter__(self):
+		if self.delay is None:
+			self.start = time.time()
+			enter_times[self.timer_name].append(self.start)
+		return self
+
+	def __exit__(self, *args):
+		if self.delay is None:
+			self.end = time.time()
+			self.interval = self.end - self.start  # measured in seconds
+		else:
+			self.interval = self.delay
+		times[self.timer_name].append(self.interval)
+
+	# print(self.timer_name, self.interval)
+
+	def print_timing_info(self, logger=None):
+		""" Prints the timing information accumulated for this Timer
+
+		:param logger: write to the supplied logger, otherwise use the built-in logger
+		"""
+		if len(times) == 0:
+			print(f'Timer {self.timer_name} has no statistics; was it used without a "with" statement?')
+			return
+		a = np.array(times[self.timer_name])
+		timing_mean = np.mean(a)  # todo use built in print method for timer
+		timing_std = np.std(a)
+		timing_median = np.median(a)
+		timing_min = np.min(a)
+		timing_max = np.max(a)
+		s = '{} n={}: {}s +/- {}s (median {}s, min {}s max {}s)'.format(self.timer_name, len(a),
+																		eng(timing_mean), eng(timing_std),
+																		eng(timing_median), eng(timing_min),
+																		eng(timing_max))
+		b = np.array(enter_times[self.timer_name])
+		b = 1 / (b[1:] - b[:-1])
+		freq_mean = np.mean(b)
+		freq_std = np.std(b)
+		freq_median = np.median(b)
+		freq_min = np.min(b)
+		freq_max = np.max(b)
+		s2 = f"call frequency: {freq_mean:.1f}Hz +/- {freq_std:.1f}Hz (median {freq_median:.1f}Hz, min {freq_min:.1f}Hz, max {freq_max:.1f}Hz)"
+		s = s + s2
+		if logger is not None:
+			logger.info(s)
+		else:
+			print(s)
+
+
+def print_timers():
+	for _, timer in timers.items():
+		timer.print_timing_info()

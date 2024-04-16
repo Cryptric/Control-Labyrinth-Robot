@@ -118,6 +118,11 @@ class CueNetV2(nn.Module):
 			output = self(frame_stack)
 		return output.cpu().detach().numpy()
 
+	def warmup(self):
+		frame_stack = torch.zeros((1, 3, 180, 240)).to(device)
+		with torch.no_grad():
+			_o = self(frame_stack)
+
 
 def load_cue_net_v2() -> CueNetV2:
 	net_state = torch.load(CueNetV3_path)
