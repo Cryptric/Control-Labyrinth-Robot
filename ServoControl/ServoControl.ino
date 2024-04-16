@@ -35,7 +35,10 @@ void loop() {
             servo_y.write(y_val);
             Serial.println("Set servo angles");
         } else {
-            Serial.println("ERROR: Angle out of range");
+            Serial.print("ERROR: Angle out of range: ");
+            Serial.print(x_val);
+            Serial.print(", ");
+            Serial.println(y_val);
         }
     }
 }
