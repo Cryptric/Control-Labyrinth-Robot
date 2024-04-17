@@ -131,6 +131,16 @@ def gen_circ():
 	w = np.stack((w_x, w_y), axis=1)
 	return w
 
+
+def calc_following_mse(recorded_data):
+	n = len(recorded_data)
+	error = 0
+	for i in range(n - 1):
+		_, ref, _ = recorded_data[i]
+		x_next, _, _ = recorded_data[i + 1]
+		error += (x_next[0] - ref[0]) ** 2
+	return error / (n - 1)
+
 timers = {}
 times = {}
 enter_times = {}

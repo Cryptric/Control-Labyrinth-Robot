@@ -14,7 +14,7 @@ import Plotter
 from MPC import MPC
 from Params import *
 from utils.ControlUtils import find_center, send_control_signal, calc_speed, gen_reference_path, gen_circ, Timer, \
-	print_timers
+	print_timers, calc_following_mse
 from utils.FrameUtils import find_board_corners, calc_px2mm, mapping_px2mm, process_frame, check_corner_points, \
 	mapping_mm2px
 
@@ -161,6 +161,7 @@ def main():
 
 	with open("recorded_y.pkl", 'wb') as f:
 		pickle.dump(recorded_data_y, f, pickle.HIGHEST_PROTOCOL)
+	print(f"Following MSE: {calc_following_mse(recorded_data_x) + calc_following_mse(recorded_data_y)}")
 
 
 if __name__ == "__main__":
