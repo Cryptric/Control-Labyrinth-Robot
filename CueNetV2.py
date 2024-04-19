@@ -3,6 +3,8 @@ import torch
 import torch.nn as nn
 from torch import Tensor
 
+from utils.ControlUtils import Timer
+
 CueNetV3_path = "Nets/pt-labi_CNN.pt"
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -113,10 +115,11 @@ class CueNetV2(nn.Module):
 		return x
 
 	def calc_position_heatmap(self, frame1: Tensor, frame2: Tensor, frame3: Tensor) -> np.ndarray:
-		frame_stack = torch.unsqueeze(torch.stack((frame1, frame2, frame3)), 0)
-		with torch.no_grad():
-			output = self(frame_stack)
-		return output.cpu().detach().numpy()
+		with Timer("CueNet"):
+			frame_stack = torch.unsqueeze(torch.stack((frame1, frame2, frame3)), 0)
+			with torch.no_grad():
+				output = self(frame_stack)
+			return output.cpu().detach().numpy()
 
 	def warmup(self):
 		frame_stack = torch.zeros((1, 3, 180, 240)).to(device)
