@@ -42,7 +42,6 @@ def update(consumer_conn: Connection, frame_buffer: List[Tensor], cue_net: CueNe
 				frame_buffer.append(new_frame)
 
 				x_mm, y_mm = mapping_px2mm(px2mm_mat, [x, y])
-				dt = time.time() - t
 				speed_x, speed_y = calc_speed(x_mm, prev_pos_x, dt), calc_speed(y_mm, prev_pos_y, dt)
 
 				xk_x = np.array([x_mm, speed_x])
