@@ -133,6 +133,7 @@ def gen_circ():
 
 
 def calc_following_mse(recorded_data):
+	recorded_data = recorded_data[20:]
 	n = len(recorded_data)
 	error = 0
 	for i in range(n - 1):
