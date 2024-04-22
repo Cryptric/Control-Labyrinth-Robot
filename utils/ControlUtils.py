@@ -132,15 +132,48 @@ def gen_circ():
 	return w
 
 
+def gen_bernoulli_lemniscate():
+	n = 600
+	a = 90
+	t = np.linspace(0, 2 * np.pi, n, endpoint=False)
+	w_x = (a * np.cos(t)) / (1 + np.sin(t) ** 2) + 150
+	w_y = (a * np.sin(t) * np.cos(t)) / (1 + np.sin(t) ** 2) + 140
+	w = np.stack((w_x, w_y), axis=1)
+	return w
+
+
+def gen_star():
+	# from https://math.stackexchange.com/questions/1308602/how-to-calculate-the-intersection-points-of-the-same-implicit-curve-in-parametri
+	n = 1000
+	t = np.linspace(0, 2 * np.pi, n, endpoint=False)
+	w_x = (27/14 * np.sin(2 * t) + 15/14 * np.sin(3 * t)) * 25 + 150
+	w_y = (27/14 * np.cos(2 * t) - 15/14 * np.cos(3 * t)) * 25 + 140
+	w = np.stack((w_x, w_y), axis=1)
+	return w
+
+
 def calc_following_mse(recorded_data):
-	recorded_data = recorded_data[20:]
+	# ignore first 5 seconds to give the ball some time to catch up, otherwise starting point has huge influence on quality measure
+	recorded_data = recorded_data[int(5 * 1 / dt):]
 	n = len(recorded_data)
 	error = 0
 	for i in range(n - 1):
-		_, ref, _ = recorded_data[i]
-		x_next, _, _ = recorded_data[i + 1]
+		_, ref, _, _ = recorded_data[i]
+		x_next, _, _, _ = recorded_data[i + 1]
 		error += (x_next[0] - ref[0]) ** 2
 	return error / (n - 1)
+
+
+def calc_control_signal_smoothness_measure(recorded_data):
+	recorded_data = recorded_data[int(5 * 1 / dt):]
+	n = len(recorded_data)
+	measure = 0
+	for i in range(n - 1):
+		_, _, _, signal = recorded_data[i]
+		_, _, _, signal_next = recorded_data[i + 1]
+		measure += abs(signal[0] - signal_next[0])
+	return measure / (n - 1)
+
 
 timers = {}
 times = {}

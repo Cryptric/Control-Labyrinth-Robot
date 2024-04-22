@@ -33,12 +33,6 @@ void loop() {
         if (CHECK_SERVO_PW(x_val) && CHECK_SERVO_PW(y_val)) {
             servo_x.writeMicroseconds(x_val);
             servo_y.writeMicroseconds(y_val);
-            Serial.println("Set servo angles");
-        } else {
-            Serial.print("ERROR: Angle out of range: ");
-            Serial.print(x_val);
-            Serial.print(", ");
-            Serial.println(y_val);
         }
     }
 }

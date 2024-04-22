@@ -14,7 +14,7 @@ import Plotter
 from MPC import MPC
 from Params import *
 from utils.ControlUtils import find_center, send_control_signal, calc_speed, gen_reference_path, gen_circ, Timer, \
-	print_timers, calc_following_mse
+	print_timers, calc_following_mse, gen_bernoulli_lemniscate, gen_star, calc_control_signal_smoothness_measure
 from utils.FrameUtils import find_board_corners, calc_px2mm, mapping_px2mm, process_frame, check_corner_points, \
 	mapping_mm2px
 
@@ -69,8 +69,8 @@ def update(consumer_conn: Connection, frame_buffer: List[Tensor], cue_net: CueNe
 				w_circ = np.roll(w_circ, -1, axis=0)
 
 				# recording
-				recorded_data_x.append((xk_x, w_circ[0:N, 0], predicted_state_x))
-				recorded_data_y.append((xk_y, w_circ[0:N, 1], predicted_state_y))
+				recorded_data_x.append((xk_x, w_circ[0:N, 0], predicted_state_x, signal_x_rad))
+				recorded_data_y.append((xk_y, w_circ[0:N, 1], predicted_state_y, signal_y_rad))
 
 				return x_mm, y_mm, signal_x_deg, signal_y_deg
 			except EOFError:
@@ -161,6 +161,7 @@ def main():
 	with open("recorded_y.pkl", 'wb') as f:
 		pickle.dump(recorded_data_y, f, pickle.HIGHEST_PROTOCOL)
 	print(f"Following MSE: {calc_following_mse(recorded_data_x) + calc_following_mse(recorded_data_y)}")
+	print(f"Control signal smoothness: {calc_control_signal_smoothness_measure(recorded_data_x) + calc_control_signal_smoothness_measure(recorded_data_y)}")
 
 
 if __name__ == "__main__":

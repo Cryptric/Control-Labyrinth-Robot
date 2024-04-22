@@ -12,6 +12,8 @@ from Params import *
 from utils.FrameUtils import mapping_px2mm
 from utils.Plotting import pr_cmap
 
+plt.rcParams.update({'font.size': 18})
+
 
 def onclick(event, target_pos_queue):
 	target_pos_queue.put((event.xdata, event.ydata))
@@ -56,9 +58,12 @@ def update(_, data_queue: Queue, img: AxesImage, pos_heatmap: AxesImage, ball_po
 
 
 def plot(data_queue, termination_event, target_pos_queue, line_plot_labels, corner_br, corner_bl, corner_tl, corner_tr):
-	fig, ax = plt.subplots(nrows=3)
+	fig, ax = plt.subplots(nrows=3, height_ratios=[3, 1, 1])
+	ax[0].set_xticks([])
+	ax[0].set_yticks([])
+
 	img = ax[0].imshow(np.zeros((IMG_SIZE_Y, IMG_SIZE_X)), cmap="gray", vmin=0, vmax=255)
-	pos_heatmap = ax[0].imshow(np.zeros((IMG_SIZE_Y, IMG_SIZE_X)), cmap=pr_cmap, alpha=1)
+	pos_heatmap = ax[0].imshow(np.zeros((IMG_SIZE_Y, IMG_SIZE_X)), cmap=pr_cmap, alpha=1, zorder=99)
 
 	ball_pos_plot, = ax[0].plot([], [], marker='o', label="Ball position", markersize=2, c="gray")
 
@@ -71,12 +76,16 @@ def plot(data_queue, termination_event, target_pos_queue, line_plot_labels, corn
 	ref_trajectory_plot, = ax[0].plot([], [], marker="x", label="Reference trajectory", markersize=2, c="orange")
 	pred_trajectory_plot, = ax[0].plot([], [], marker="x", label="Predicted trajectory", markersize=2, c="green")
 
+	ax[1].set_xticks([])
+	ax[1].set_title("Control signal")
 	line_plots = []
 	for label in line_plot_labels:
 		line, = ax[1].plot([1, 2], [1, 2], label=label)
 		line_plots.append(line)
 	ax[1].set_ylim(U_min * 180 / math.pi * 1.2, U_max * 180 / math.pi * 1.2)
 
+	ax[2].set_xticks([])
+	ax[2].set_title("Ball velocity")
 	speed_plot_x,  = ax[2].plot([], [], label="ball velocity x")
 	speed_plot_y,  = ax[2].plot([], [], label="ball velocity y")
 	ax[2].set_ylim(-300, 300)
@@ -84,7 +93,6 @@ def plot(data_queue, termination_event, target_pos_queue, line_plot_labels, corn
 	update_func = partial(update, data_queue=data_queue, img=img, pos_heatmap=pos_heatmap, ball_pos_plot=ball_pos_plot, processing_region=processing_region, corner_points_plt=corner_points_plt, ref_trajectory_plot=ref_trajectory_plot, pred_trajectory_plot=pred_trajectory_plot, line_plots=line_plots, speed_plot=[speed_plot_x, speed_plot_y], ax2=ax[1], ax3=ax[2])
 	anim = FuncAnimation(fig, update_func, cache_frame_data=False, interval=0, blit=True)
 
-	plt.legend()
 	plt.grid()
 	plt.show()
 

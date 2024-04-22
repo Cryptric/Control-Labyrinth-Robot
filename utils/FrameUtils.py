@@ -85,7 +85,7 @@ def mapping_mm2px(homo, xy):
 def process_frame(frame):
 	frame = remove_distortion(frame)
 	# values for 2000 exposure
-	frame = np.clip(frame.astype(np.uint16) * 3.7 + 120, 0, 255)
+	frame = np.clip(frame.astype(np.uint16) * 3.7 + 110, 0, 255)
 	return frame, torch.squeeze(TF.to_tensor(frame[PROCESSING_Y:PROCESSING_Y + PROCESSING_SIZE_HEIGHT, PROCESSING_X:PROCESSING_X + PROCESSING_SIZE_WIDTH].astype("float32") / 255).to(device))
 
 
