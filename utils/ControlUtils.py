@@ -3,6 +3,7 @@ from math import sqrt
 
 import numpy as np
 from engineering_notation import EngNumber as eng
+from scipy.interpolate import interp1d
 
 from Params import *
 
@@ -117,6 +118,20 @@ def calc_num_move_points(distance):
 	return min(N, round(0.005 * distance / dt))
 
 
+def calc_distance(x, y):
+	return np.linalg.norm(x - y)
+
+
+def interpolate(data):
+	# https://stackoverflow.com/questions/52014197/how-to-interpolate-a-2d-curve-in-python
+	distance = np.cumsum(np.sqrt(np.sum(np.diff(data, axis=0) ** 2, axis=1)))
+	distance = np.insert(distance, 0, 0) / distance[-1]
+
+	alpha = np.linspace(0, 1, 3000)
+	interpolator = interp1d(distance, data, kind="quadratic", axis=0)
+	return interpolator(alpha)
+
+
 def gen_reference_path(pos, target):
 	num_move_points = calc_num_move_points(abs(pos - target))
 	move_points = np.linspace(pos, target, num_move_points)
@@ -150,6 +165,11 @@ def gen_star():
 	w_y = (27/14 * np.cos(2 * t) - 15/14 * np.cos(3 * t)) * 25 + 140
 	w = np.stack((w_x, w_y), axis=1)
 	return w
+
+
+def gen_path():
+	path = np.load("path.npy")
+	return interpolate(path)
 
 
 def calc_following_mse(recorded_data):
