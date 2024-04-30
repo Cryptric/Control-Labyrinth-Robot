@@ -9,6 +9,7 @@ np.set_printoptions(threshold=np.inf, linewidth=np.inf)
 
 class MPC:
 	def __init__(self, K, signal_cost=None, du_default=None):
+		self.K = K
 		self.N = N
 		self.A = np.array([[1, dt], [0, 1]])
 		self.B = np.array([[0], [dt * 5/7 * g * K]])
@@ -43,13 +44,19 @@ class MPC:
 		self.h = np.ones(2 * N - 2) * (du_default if du_default else du_max)
 
 		self.P_sparse = sparse.csc_matrix(self.P)
+		self.G_sparse = sparse.csc_matrix(self.G)
+
+		self.prev_signal = np.zeros(N)
 
 	def calc_q(self, xk, wk_N):
 		return self.S0.T @ self.Q @ (self.V0 @ xk - wk_N)
 
 	def get_control_signal(self, wk, xk):
+		self.prev_signal = np.roll(self.prev_signal, -1)
+		self.prev_signal[-1] = self.prev_signal[-1]
 		q = self.calc_q(xk, wk)
-		signal = solve_qp(P=self.P_sparse, G=self.G, h=self.h, q=q, lb=self.lb, ub=self.ub, solver="osqp")
+		signal = solve_qp(P=self.P_sparse, G=self.G_sparse, h=self.h, q=q, lb=self.lb, ub=self.ub, solver="osqp", initvals=self.prev_signal)
+		self.prev_signal = signal
 		return signal
 
 	def get_predicted_state(self, xk, control_signal):
