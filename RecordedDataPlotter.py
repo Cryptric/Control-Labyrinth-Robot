@@ -43,8 +43,11 @@ def main():
         mpc_x = MPC(Params.K_x, signal_cost=control_signal_penalty_slider.val, du_default=du_slider.val)
         mpc_y = MPC(Params.K_y, signal_cost=control_signal_penalty_slider.val, du_default=du_slider.val)
 
+        t = time.time()
         signal_x_rad = mpc_x.get_control_signal(ref_x, xk_x)
         signal_y_rad = mpc_y.get_control_signal(ref_y, xk_y)
+        dt = time.time() - t
+        print(f'Time taken to compute MPC: {dt * 1000} ms')
 
         predicted_state_x = mpc_x.get_predicted_state(xk_x, signal_x_rad)
         predicted_state_y = mpc_y.get_predicted_state(xk_y, signal_y_rad)

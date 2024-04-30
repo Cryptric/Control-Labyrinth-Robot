@@ -1,5 +1,6 @@
 import pickle
 import time
+from datetime import datetime
 from multiprocessing import Pipe, Process, Event, Queue
 from multiprocessing.connection import Connection
 from typing import List
@@ -14,10 +15,10 @@ import Plotter
 from MPC import MPC
 from Params import *
 from utils.ControlUtils import find_center, send_control_signal, calc_speed, gen_reference_path, gen_circ, Timer, \
-	print_timers, calc_following_mse, gen_bernoulli_lemniscate, gen_star, calc_control_signal_smoothness_measure
+	print_timers, calc_following_mse, gen_bernoulli_lemniscate, gen_star, calc_control_signal_smoothness_measure, gen_path
 from utils.FrameUtils import find_board_corners, calc_px2mm, mapping_px2mm, process_frame, check_corner_points, \
 	mapping_mm2px
-
+from utils.store import store
 
 w_circ = gen_circ()
 
@@ -86,6 +87,8 @@ def onclick(event, px2mm_mat):
 
 
 def main():
+	start_time = datetime.now()
+
 	cue_net = CueNetV2.load_cue_net_v2()
 	cue_net.warmup()
 	frame_buffer = []
@@ -133,6 +136,7 @@ def main():
 	while consumer_conn.poll():
 		consumer_conn.recv()
 
+	runtime_start = time.time()
 	while not termination_event.is_set():
 		prev_pos_x, prev_pos_y, prev_signal_x, prev_signal_y = update(consumer_conn, frame_buffer, cue_net, mpc_x, mpc_y, target_pos_x, target_pos_y, px2mm_mat, prev_pos_x, prev_pos_y, prev_signal_x, prev_signal_y, arduino, termination_event, plot_queue)
 		if not target_pos_queue.empty():
@@ -160,7 +164,10 @@ def main():
 
 	with open("recorded_y.pkl", 'wb') as f:
 		pickle.dump(recorded_data_y, f, pickle.HIGHEST_PROTOCOL)
-	print(f"Following MSE: {calc_following_mse(recorded_data_x) + calc_following_mse(recorded_data_y)}")
+
+	follow_mse = calc_following_mse(recorded_data_x) + calc_following_mse(recorded_data_y)
+	store(recorded_data_x, recorded_data_y, start_time, time.time() - runtime_start, follow_mse)
+	print(f"Following MSE: {follow_mse}")
 	print(f"Control signal smoothness: {calc_control_signal_smoothness_measure(recorded_data_x) + calc_control_signal_smoothness_measure(recorded_data_y)}")
 
 
