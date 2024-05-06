@@ -761,3 +761,6 @@ $RECYCLE.BIN/
 *.lnk
 
 # End of https://www.toptal.com/developers/gitignore/api/cmake,platformio,c++,c,latex,windows,linux,python,clion+all,pycharm+all
+
+# Data store
+store/

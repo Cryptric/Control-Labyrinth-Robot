@@ -25,7 +25,7 @@ def main():
     plt.xlabel('X')
     plt.ylabel('Y')
 
-    start_index = 2152
+    start_index = 0
 
     # Add a slider
     index_slider = Slider(ax[3], 'Index', 0, len(recoded_data_x) - 1, valinit=start_index, valstep=1)

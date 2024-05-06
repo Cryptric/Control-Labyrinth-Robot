@@ -12,6 +12,7 @@ from torch import Tensor
 import CueNetV2
 import Davis346Reader
 import Plotter
+from HighLevelController.NextNearestPointController import NextNearestPointController
 from MPC import MPC
 from Params import *
 from utils.ControlUtils import find_center, send_control_signal, calc_speed, gen_reference_path, gen_circ, Timer, \
@@ -27,7 +28,7 @@ recorded_data_x = []
 recorded_data_y = []
 
 
-def update(consumer_conn: Connection, frame_buffer: List[Tensor], cue_net: CueNetV2, mpc_x, mpc_y, target_pos_x, target_pos_y, px2mm_mat, prev_pos_x, prev_pos_y, prev_signal_x, prev_signal_y, arduino, termination_event: Event, plot_queue: Queue):
+def update(consumer_conn: Connection, frame_buffer: List[Tensor], cue_net: CueNetV2, mpc_x, mpc_y, path_controller, target_pos_x, target_pos_y, px2mm_mat, prev_pos_x, prev_pos_y, prev_signal_x, prev_signal_y, arduino, termination_event: Event, plot_queue: Queue):
 	global w_circ
 	global recorded_data_x
 	global recorded_data_y
@@ -48,19 +49,27 @@ def update(consumer_conn: Connection, frame_buffer: List[Tensor], cue_net: CueNe
 				xk_x = np.array([x_mm, speed_x])
 				xk_y = np.array([y_mm, speed_y])
 
-				w_x = gen_reference_path(x_mm, target_pos_x)
-				w_y = gen_reference_path(y_mm, target_pos_y)
+				# w_x = gen_reference_path(x_mm, target_pos_x)
+				# w_y = gen_reference_path(y_mm, target_pos_y)
 				# print(w_circ)
 				# signal_x_rad = mpc_x.get_control_signal(w_x, xk_x)[0]
 				# signal_y_rad = mpc_y.get_control_signal(w_y, xk_y)[0]
-				signal_x_rad = mpc_x.get_control_signal(w_circ[0:N, 0], xk_x)
-				signal_y_rad = mpc_y.get_control_signal(w_circ[0:N, 1], xk_y)
 
-				signal_x_deg = signal_x_rad[0] * 180 / math.pi
-				signal_y_deg = signal_y_rad[0] * 180 / math.pi
+				reference_trajectory = path_controller.get_reference_trajectory(x_mm, y_mm)
+
+				# signal_x_rad = mpc_x.get_control_signal(w_circ[0:N, 0], xk_x)
+				# signal_y_rad = mpc_y.get_control_signal(w_circ[0:N, 1], xk_y)
+
+				signal_x_rad = mpc_x.get_control_signal(reference_trajectory[:, 0], xk_x)
+				signal_y_rad = mpc_y.get_control_signal(reference_trajectory[:, 1], xk_y)
+
+				signal_multiplier = path_controller.get_signal_multiplier()
+
+				signal_x_deg = signal_x_rad[0] * 180 / math.pi * signal_multiplier
+				signal_y_deg = signal_y_rad[0] * 180 / math.pi * signal_multiplier
 				send_control_signal(arduino, signal_x_deg, signal_y_deg)
 
-				ref_trajectory = np.array([mapping_mm2px(px2mm_mat, w_circ[i]) for i in range(N)])
+				ref_trajectory = np.array([mapping_mm2px(px2mm_mat, reference_trajectory[i]) for i in range(N)])
 				predicted_state_x = mpc_x.get_predicted_state(xk_x, signal_x_rad)
 				predicted_state_y = mpc_y.get_predicted_state(xk_y, signal_y_rad)
 
@@ -132,13 +141,15 @@ def main():
 	mpc_x = MPC(K_x)
 	mpc_y = MPC(K_y)
 
+	path_controller = NextNearestPointController()
+
 	# clear pipe
 	while consumer_conn.poll():
 		consumer_conn.recv()
 
 	runtime_start = time.time()
 	while not termination_event.is_set():
-		prev_pos_x, prev_pos_y, prev_signal_x, prev_signal_y = update(consumer_conn, frame_buffer, cue_net, mpc_x, mpc_y, target_pos_x, target_pos_y, px2mm_mat, prev_pos_x, prev_pos_y, prev_signal_x, prev_signal_y, arduino, termination_event, plot_queue)
+		prev_pos_x, prev_pos_y, prev_signal_x, prev_signal_y = update(consumer_conn, frame_buffer, cue_net, mpc_x, mpc_y, path_controller, target_pos_x, target_pos_y, px2mm_mat, prev_pos_x, prev_pos_y, prev_signal_x, prev_signal_y, arduino, termination_event, plot_queue)
 		if not target_pos_queue.empty():
 			x, y = target_pos_queue.get()
 			target_pos = mapping_px2mm(px2mm_mat, [x, y])
