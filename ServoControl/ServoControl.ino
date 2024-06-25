@@ -1,14 +1,17 @@
 #include <Arduino.h>
 #include <Servo.h>
 
-#define SERVO_X_IDLE_ANGLE 82
-#define SERVO_Y_IDLE_ANGLE 86
+#define SERVO_X_IDLE_ANGLE 80
+#define SERVO_Y_IDLE_ANGLE 87
 
 #define SERVO_MIN_PW 1265
 #define SERVO_MAX_PW 1678
 
 #define CHECK_SERVO_PW(angle) (SERVO_MIN_PW <= angle && angle <= SERVO_MAX_PW)
 
+#define LED_PIN 12
+
+bool led_state = true;
 
 Servo servo_x;
 Servo servo_y;
@@ -19,6 +22,9 @@ void setup() {
 
     servo_x.write(SERVO_X_IDLE_ANGLE);
     servo_y.write(SERVO_Y_IDLE_ANGLE);
+
+    pinMode(LED_PIN, OUTPUT);
+    digitalWrite(LED_PIN, led_state);
 
     Serial.begin(115200);
 }
@@ -31,6 +37,8 @@ void loop() {
         int y_val = (int) servoControls.substring(xy_separator_position + 1).toInt();
 
         if (CHECK_SERVO_PW(x_val) && CHECK_SERVO_PW(y_val)) {
+            led_state = !led_state;
+            digitalWrite(LED_PIN, led_state);
             servo_x.writeMicroseconds(x_val);
             servo_y.writeMicroseconds(y_val);
         }
