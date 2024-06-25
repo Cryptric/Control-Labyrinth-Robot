@@ -1,5 +1,7 @@
 import time
 
+import numpy as np
+from PIL import Image
 from pyaer import libcaer
 from pyaer.davis import DAVIS
 
@@ -10,6 +12,8 @@ from utils.ControlUtils import Timer, timers, print_timers
 
 
 def run(producer_conn: Connection, termination_event: Event):
+	record = False
+
 	device = None
 	try:
 		device = DAVIS(noise_filter=True)
@@ -32,13 +36,33 @@ def run(producer_conn: Connection, termination_event: Event):
 		# setting bias after data stream started
 		device.set_bias_from_json("./davis346_config.json")
 
+		events = None
+		last_frame = np.zeros((260, 346), dtype=np.uint8)
+		img_counter = 0
+		store_path = "RecordTest"
+
 		while not termination_event.is_set():
 			with Timer("davis capture"):
 				data = device.get_event()
 				if data is not None:
-					(_, _, _, _, _, frames, _, _) = data
+					(pol_events, num_pol_event, _, _, _, frames, _, _) = data
 					if (not isinstance(frames, int)) and frames.shape[0] != 0:
 						producer_conn.send((frames[0], time.time()))
+						if record:
+							last_frame = frames[0]
+					if record:
+						if num_pol_event > 0:
+							pol_events = pol_events[pol_events[:, 4] == 1]
+							if events is None:
+								events = pol_events
+							else:
+								events = np.vstack([events, pol_events])
+							if events is not None and len(events) >= 10:
+								img = Image.fromarray(last_frame)
+								img.save(f"{store_path}/img-{img_counter}.jpg")
+								np.save(f"{store_path}/events-{img_counter}.npy", events)
+								img_counter += 1
+								events = None
 
 	finally:
 		print_timers()
