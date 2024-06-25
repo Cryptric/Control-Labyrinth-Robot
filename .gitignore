@@ -764,5 +764,10 @@ $RECYCLE.BIN/
 
 # Data store
 store/
+
 MLData/
 RecordTest/
+recorded_x.pkl
+recorded_y.pkl
+# Test images
+TestImages/
