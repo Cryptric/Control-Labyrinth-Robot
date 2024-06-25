@@ -10,7 +10,7 @@
 
 #define CHECK_SERVO_ANGLE(angle) (SERVO_MIN_ANGLE <= angle && angle <= SERVO_MAX_ANGLE)
 
-#define SERVO_WAIT_TIME 500
+#define SERVO_WAIT_TIME 1000
 
 const int MPU6500Address = 0x68; // MPU-6500 I2C address
 
