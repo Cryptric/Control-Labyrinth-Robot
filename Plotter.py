@@ -9,7 +9,8 @@ from matplotlib.image import AxesImage
 from matplotlib.lines import Line2D
 
 from Params import *
-from utils.FrameUtils import mapping_px2mm
+from utils.ControlUtils import *
+from utils.FrameUtils import *
 from utils.Plotting import pr_cmap
 
 plt.rcParams.update({'font.size': 18})
@@ -22,42 +23,23 @@ def onclick(event, target_pos_queue):
 	print("clicked")
 
 
-def update(_, data_queue: Queue, img: AxesImage, pos_heatmap: AxesImage, ball_pos_plot: Line2D, processing_region, corner_points_plt, ref_trajectory_plot, pred_trajectory_plot, line_plots, speed_plot, ax2, ax3):
-	frame, heatmap, pos, ref_trajectory, pred_trajectory, data_points, speed, time = data_queue.get()
-	while not data_queue.empty():
-		frame, heatmap, pos, ref_trajectory, pred_trajectory, data_points, speed, time = data_queue.get()
-
-	img.set_array(frame)
-
-	pos_heatmap.set_array(heatmap)
-	vmin, vmax = heatmap.min(), heatmap.max()
-	pos_heatmap.set_clim(vmin=vmin, vmax=vmax)
-
-	ball_pos_plot.set_xdata(np.append(ball_pos_plot.get_xdata(), pos[0])[-50:])
-	ball_pos_plot.set_ydata(np.append(ball_pos_plot.get_ydata(), pos[1])[-50:])
-
-	ref_trajectory_plot.set_xdata(ref_trajectory[0])
-	ref_trajectory_plot.set_ydata(ref_trajectory[1])
-
-	pred_trajectory_plot.set_xdata(pred_trajectory[0])
-	pred_trajectory_plot.set_ydata(pred_trajectory[1])
-
-	for i in range(len(line_plots)):
-		line_plots[i].set_xdata(np.append(line_plots[i].get_xdata(), time)[-50:])
-		line_plots[i].set_ydata(np.append(line_plots[i].get_ydata(), data_points[i])[-50:])
-	ax2.relim()
-	ax2.autoscale_view()
-
-	for speed_line, data_point in zip(speed_plot, speed):
-		speed_line.set_xdata(np.append(speed_line.get_xdata(), time)[-50:])
-		speed_line.set_ydata(np.append(speed_line.get_ydata(), data_point)[-50:])
-	ax3.relim()
-	ax3.autoscale_view()
-
-	return img, pos_heatmap, ball_pos_plot, processing_region, corner_points_plt, ref_trajectory_plot, pred_trajectory_plot, *line_plots, *speed_plot
 
 
 def plot(data_queue, termination_event, target_pos_queue, line_plot_labels, corner_br, corner_bl, corner_tl, corner_tr):
+	corner_bl = calc_corrected_pos(P_CORNER_BL, 0, 0)
+	corner_br = calc_corrected_pos(P_CORNER_BR, 0, 0)
+	corner_tr = calc_corrected_pos(P_CORNER_TR, 0, 0)
+	corner_tl = calc_corrected_pos(P_CORNER_TL, 0, 0)
+	coordinate_transform_mat = calc_transform_mat([corner_bl, corner_br, corner_tr, corner_tl])
+	print(coordinate_transform_mat)
+
+	coord_points = [apply_transform(coordinate_transform_mat, corner_bl), apply_transform(coordinate_transform_mat, corner_br), apply_transform(coordinate_transform_mat, corner_tr), apply_transform(coordinate_transform_mat, corner_tl)]
+	target_points = [CORNER_BL, CORNER_BR, CORNER_TR, CORNER_TL]
+	mm2px_mat = calc_transform_mat(coord_points, np.array(target_points))
+	print("mm to px transform matrix")
+	print(mm2px_mat)
+
+
 	fig, ax = plt.subplots(nrows=3, height_ratios=[3, 1, 1])
 	ax[0].set_xticks([])
 	ax[0].set_yticks([])
@@ -66,9 +48,6 @@ def plot(data_queue, termination_event, target_pos_queue, line_plot_labels, corn
 	pos_heatmap = ax[0].imshow(np.zeros((IMG_SIZE_Y, IMG_SIZE_X)), cmap=pr_cmap, alpha=1, zorder=99)
 
 	ball_pos_plot, = ax[0].plot([], [], marker='o', label="Ball position", markersize=2, c="gray")
-
-	processing_section_marker = patches.Rectangle((PROCESSING_X, PROCESSING_Y), PROCESSING_SIZE_WIDTH, PROCESSING_SIZE_HEIGHT, linewidth=1, edgecolor='r', facecolor='none')
-	processing_region = ax[0].add_patch(processing_section_marker)
 
 	fig.canvas.mpl_connect('button_press_event', partial(onclick, target_pos_queue=target_pos_queue))
 	corner_points_plt = ax[0].scatter([corner_br[0], corner_bl[0], corner_tl[0], corner_tr[0]], [corner_br[1], corner_bl[1], corner_tl[1], corner_tr[1]], label="detected board corners")
@@ -82,7 +61,7 @@ def plot(data_queue, termination_event, target_pos_queue, line_plot_labels, corn
 	for label in line_plot_labels:
 		line, = ax[1].plot([1, 2], [1, 2], label=label)
 		line_plots.append(line)
-	ax[1].set_ylim(U_min * 180 / math.pi * 1.2, U_max * 180 / math.pi * 1.2)
+	ax[1].set_ylim((U_min - DISTURBANCE_INTEGRAL_CLIP) * 180 / np.pi * 6, (U_max + DISTURBANCE_INTEGRAL_CLIP) * 180 / np.pi * 6)
 
 	ax[2].set_xticks([])
 	ax[2].set_title("Ball velocity")
@@ -90,7 +69,45 @@ def plot(data_queue, termination_event, target_pos_queue, line_plot_labels, corn
 	speed_plot_y,  = ax[2].plot([], [], label="ball velocity y")
 	ax[2].set_ylim(-300, 300)
 
-	update_func = partial(update, data_queue=data_queue, img=img, pos_heatmap=pos_heatmap, ball_pos_plot=ball_pos_plot, processing_region=processing_region, corner_points_plt=corner_points_plt, ref_trajectory_plot=ref_trajectory_plot, pred_trajectory_plot=pred_trajectory_plot, line_plots=line_plots, speed_plot=[speed_plot_x, speed_plot_y], ax2=ax[1], ax3=ax[2])
+	def update(_, speed_plot, ax2, ax3):
+		frame, heatmap, pos, target_trajectory, [pred_state_x, pred_state_y], data_points, speed, time = data_queue.get()
+		while not data_queue.empty():
+			frame, heatmap, pos, target_trajectory, [pred_state_x, pred_state_y], data_points, speed, time = data_queue.get()
+
+		img.set_array(remove_distortion(frame))
+
+		# pos_heatmap.set_array(heatmap)
+		# vmin, vmax = heatmap.min(), heatmap.max()
+		# pos_heatmap.set_clim(vmin=vmin, vmax=vmax)
+
+		pos = apply_transform(mm2px_mat, pos)
+		target_trajectory = sequence_apply_transform(mm2px_mat, target_trajectory[:, 0], target_trajectory[:, 1])
+		pred_trajectory = sequence_apply_transform(mm2px_mat, pred_state_x, pred_state_y)
+
+		ball_pos_plot.set_xdata(np.append(ball_pos_plot.get_xdata(), pos[0])[-50:])
+		ball_pos_plot.set_ydata(np.append(ball_pos_plot.get_ydata(), pos[1])[-50:])
+
+		ref_trajectory_plot.set_xdata(target_trajectory[0])
+		ref_trajectory_plot.set_ydata(target_trajectory[1])
+
+		pred_trajectory_plot.set_xdata(pred_trajectory[0])
+		pred_trajectory_plot.set_ydata(pred_trajectory[1])
+
+		for i in range(len(line_plots)):
+			line_plots[i].set_xdata(np.append(line_plots[i].get_xdata(), time)[-50:])
+			line_plots[i].set_ydata(np.append(line_plots[i].get_ydata(), data_points[i])[-50:])
+		ax2.relim()
+		ax2.autoscale_view()
+
+		for speed_line, data_point in zip(speed_plot, speed):
+			speed_line.set_xdata(np.append(speed_line.get_xdata(), time)[-50:])
+			speed_line.set_ydata(np.append(speed_line.get_ydata(), data_point)[-50:])
+		ax3.relim()
+		ax3.autoscale_view()
+
+		return img, pos_heatmap, ball_pos_plot, corner_points_plt, ref_trajectory_plot, pred_trajectory_plot, *line_plots, *speed_plot
+
+	update_func = partial(update, speed_plot=[speed_plot_x, speed_plot_y], ax2=ax[1], ax3=ax[2])
 	anim = FuncAnimation(fig, update_func, cache_frame_data=False, interval=0, blit=True)
 
 	plt.grid()
