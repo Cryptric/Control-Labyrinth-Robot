@@ -1,6 +1,7 @@
 from functools import partial
 from multiprocessing import Pipe, Event, Process
 
+import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.animation import FuncAnimation
@@ -8,11 +9,9 @@ from matplotlib.backend_bases import MouseButton
 from scipy.interpolate import interp1d
 
 import Davis346Reader
-from Params import Y_EDGE, X_EDGE, IMG_SIZE_Y, IMG_SIZE_X, PROCESSING_Y, PROCESSING_SIZE_HEIGHT, PROCESSING_X, \
-	PROCESSING_SIZE_WIDTH, CORNER_MASK_MAX_Y, CORNER_MASK_MIN_X, CORNER_MASK_MAX_X, CORNER_MASK_MIN_Y
-from utils.ControlUtils import Timer, print_timers
-from utils.FrameUtils import process_frame, remove_distortion, find_board_corners, calc_px2mm, mapping_px2mm
-from utils.Plotting import pr_cmap
+from Params import *
+from utils.ControlUtils import Timer, print_timers, calc_corrected_pos
+from utils.FrameUtils import *
 
 
 def main():
@@ -29,8 +28,18 @@ def main():
 	img = ax.imshow(np.zeros((IMG_SIZE_Y, IMG_SIZE_X)), cmap="gray", vmin=0, vmax=255)
 
 	frame, _ = consumer_conn.recv()
-	corner_br, corner_bl, corner_tl, corner_tr = find_board_corners(frame)
-	px2mm_mat = calc_px2mm([corner_bl, corner_br, corner_tr, corner_tl])
+	corner_bl = calc_corrected_pos(P_CORNER_BL, 0, 0)
+	corner_br = calc_corrected_pos(P_CORNER_BR, 0, 0)
+	corner_tr = calc_corrected_pos(P_CORNER_TR, 0, 0)
+	corner_tl = calc_corrected_pos(P_CORNER_TL, 0, 0)
+	coordinate_transform_mat = calc_transform_mat([corner_bl, corner_br, corner_tr, corner_tl])
+	print(coordinate_transform_mat)
+
+	coord_points = [apply_transform(coordinate_transform_mat, corner_bl), apply_transform(coordinate_transform_mat, corner_br), apply_transform(coordinate_transform_mat, corner_tr), apply_transform(coordinate_transform_mat, corner_tl)]
+	target_points = [CORNER_BL, CORNER_BR, CORNER_TR, CORNER_TL]
+	mm2px_mat = calc_transform_mat(coord_points, np.array(target_points))
+	print("mm to px transform matrix")
+	print(mm2px_mat)
 	corner_points_plt = ax.scatter([corner_br[0], corner_bl[0], corner_tl[0], corner_tr[0]], [corner_br[1], corner_bl[1], corner_tl[1], corner_tr[1]], label="detected board corners")
 
 	path_x = []
@@ -52,13 +61,16 @@ def main():
 		path_mm = np.zeros_like(path_px)
 		for i in range(path_px.shape[0]):
 			point_px = path_px[i]
-			point_mm = mapping_px2mm(px2mm_mat, point_px)
-			path_mm[i] = point_mm
+			point_p_corrected = calc_corrected_pos(point_px, 0, 0)
+			point_board_coordinates = apply_transform(coordinate_transform_mat, point_p_corrected)
+			path_mm[i] = point_board_coordinates
 		return path_mm
 
 	def onclick(event):
 		if event.button == MouseButton.LEFT:
 			x, y = event.xdata, event.ydata
+			if x in path_x and y in path_y:
+				return
 			path_x.append(x)
 			path_y.append(y)
 		else:
@@ -68,7 +80,6 @@ def main():
 	def update(_, img_plt):
 		with Timer("update"):
 			frame, _ = consumer_conn.recv()
-			frame, _ = process_frame(frame)
 
 			path_plt.set_xdata(path_x)
 			path_plt.set_ydata(path_y)
@@ -101,7 +112,7 @@ def main():
 
 	path = np.stack((path_x, path_y), axis=1)
 	interpolated_path = interpolate(path)
-	np.save("path.npy", convert_to_mm(interpolated_path))
+	np.save("path-simple-labyrinth.npy", convert_to_mm(interpolated_path))
 
 
 if __name__ == '__main__':
