@@ -764,3 +764,5 @@ $RECYCLE.BIN/
 
 # Data store
 store/
+MLData/
+RecordTest/
