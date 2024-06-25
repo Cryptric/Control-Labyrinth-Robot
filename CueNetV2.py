@@ -5,7 +5,8 @@ from torch import Tensor
 
 from utils.ControlUtils import Timer
 
-CueNetV3_path = "Nets/pt-labi_CNN.pt"
+CueNetV3_path = "Nets/4ep.pt"
+#CueNetV3_path = "Nets/pt-labi_CNN.pt"
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -91,6 +92,7 @@ class CueNetV2(nn.Module):
 		self.layer18 = nn.Softmax(dim=1)
 
 	def forward(self, x):
+		batch_size = x.shape[0]
 		x = self.layer1(x)
 		x = self.layer2(x)
 		x = self.layer3(x)
@@ -110,7 +112,7 @@ class CueNetV2(nn.Module):
 		x = self.layer17(x)
 		x = x.view(1, -1)
 		x = self.layer18(x)
-		x = x.reshape(1, 180, 240)
+		x = x.reshape(batch_size, 260, 344)
 
 		return x
 
@@ -122,7 +124,7 @@ class CueNetV2(nn.Module):
 			return output.cpu().detach().numpy()
 
 	def warmup(self):
-		frame_stack = torch.zeros((1, 3, 180, 240)).to(device)
+		frame_stack = torch.zeros((1, 3, 260, 346)).to(device)
 		with torch.no_grad():
 			_o = self(frame_stack)
 
