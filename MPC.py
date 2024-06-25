@@ -14,7 +14,7 @@ class MPC:
 		self.A = np.array([[1, dt], [0, 1]])
 		self.B = np.array([[0], [dt * 5/7 * g * K]])
 		self.C = np.array([[1, 0]])
-		self.Q = np.identity(N) * (- np.exp(-0.05 * np.linspace(0, N, N) + np.log(Q)) + Q)
+		self.Q = np.identity(N) * (- np.exp(-0.05 * np.linspace(40, N, N) + np.log(Q)) + Q)
 		self.R = (signal_cost if signal_cost else R) * np.identity(N)
 
 		self.V0 = np.zeros((N, 2))
@@ -46,18 +46,55 @@ class MPC:
 		self.P_sparse = sparse.csc_matrix(self.P)
 		self.G_sparse = sparse.csc_matrix(self.G)
 
+		self.dead_time_matrices = []
+		for i in range(STEPS_DEAD_TIME):
+			self.dead_time_matrices.append(np.linalg.matrix_power(self.A, i) @ self.B)
+		self.dead_time_matrices.append(np.linalg.matrix_power(self.A, STEPS_DEAD_TIME))
+
+		# stores the first entry of the control signal vector for the last STEPS_DEAD_TIME iterations
+		# the most recent control signal is stored at index 0
+		self.control_signal_queue = [0] * STEPS_DEAD_TIME
+
+		# stores the delay compensated state for the last STEPS_DEAD_TIME iterations, used to then compare to the real state and approximate the disturbance in the control angle of the system
+		# the most recent state is stored at index 0
+		self.delay_compensated_state_queue = []
+
+		self.angle_disturbance_integral = 0
+		self.angle_disturbance_e = 0
+
 		self.prev_signal = np.zeros(N)
 
 	def calc_q(self, xk, wk_N):
 		return self.S0.T @ self.Q @ (self.V0 @ xk - wk_N)
 
+	def update_disturbance_approximation(self, current_xk_measured, current_xk_compensated):
+		angle_disturbance = 0
+		if len(self.delay_compensated_state_queue) >= STEPS_DEAD_TIME:
+			e = current_xk_measured[0] - self.delay_compensated_state_queue[-1][0]
+			if e <= 20:
+				P = DISTURBANCE_APPROXIMATION_PROPORTIONAL * e
+				I = self.angle_disturbance_integral + e * DISTURBANCE_APPROXIMATION_INTEGRAL * dt
+				D = DISTURBANCE_APPROXIMATION_DIFFERENTIAL * (e - self.angle_disturbance_e) / dt
+				self.angle_disturbance_e = e
+				self.angle_disturbance_integral = np.clip(I, -DISTURBANCE_INTEGRAL_CLIP, DISTURBANCE_INTEGRAL_CLIP)
+				angle_disturbance = np.clip(P + I + D, -DISTURBANCE_INTEGRAL_CLIP, DISTURBANCE_INTEGRAL_CLIP)
+				# print(f"Angle disturbance {angle_disturbance}")
+			self.delay_compensated_state_queue.pop(-1)
+		self.delay_compensated_state_queue.insert(0, current_xk_compensated)
+		return angle_disturbance
+
 	def get_control_signal(self, wk, xk):
+		xk_delay_compensated = self.dead_time_matrices[-1] @ xk + np.sum([self.dead_time_matrices[i] * self.control_signal_queue[i] for i in range(STEPS_DEAD_TIME)], axis=0)[:, 0]
+		angle_disturbance = self.update_disturbance_approximation(xk, xk_delay_compensated)
+
 		self.prev_signal = np.roll(self.prev_signal, -1)
 		self.prev_signal[-1] = self.prev_signal[-1]
-		q = self.calc_q(xk, wk)
+		q = self.calc_q(xk_delay_compensated, wk)
 		signal = solve_qp(P=self.P_sparse, G=self.G_sparse, h=self.h, q=q, lb=self.lb, ub=self.ub, solver="osqp", initvals=self.prev_signal)
 		self.prev_signal = signal
-		return signal
+		self.control_signal_queue.insert(0, signal[0])
+		self.control_signal_queue.pop(-1)
+		return signal, angle_disturbance, xk_delay_compensated
 
 	def get_predicted_state(self, xk, control_signal):
 		return self.V0 @ xk + self.S0 @ control_signal
