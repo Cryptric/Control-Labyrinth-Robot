@@ -25,6 +25,7 @@ w_circ = gen_circ()
 # tuple, of (system state, reference trajectory, predicted trajectory)
 recorded_data_x = []
 recorded_data_y = []
+prev_angles = np.array([0, 0], dtype=np.float64)
 
 
 def update(consumer_conn: Connection, frame_buffer, cue_net, mpc_x, mpc_y, path_controller, target_pos_x, target_pos_y, coordinate_transform_mat, prev_pos_x, prev_pos_y, prev_signal_x, prev_signal_y, orig_focal_pos, arduino, termination_event: Event, plot_queue: Queue):
@@ -41,7 +42,8 @@ def update(consumer_conn: Connection, frame_buffer, cue_net, mpc_x, mpc_y, path_
 				# heatmap = np.pad(heatmap[0], ((Y_EDGE // 2, Y_EDGE // 2), (X_EDGE // 2, X_EDGE // 2)))
 
 				ball_pos = find_center4(frame)
-				angle_x, angle_y = calc_board_angle(frame, orig_focal_pos)
+				angle_x, angle_y = calc_board_angle(frame, orig_focal_pos, prev_angles[0], prev_angles[1])
+				prev_angles[:] = angle_x, angle_y
 				pos = calc_corrected_pos(ball_pos, angle_x, angle_y)
 
 				x_mm, y_mm = apply_transform(coordinate_transform_mat, pos)
