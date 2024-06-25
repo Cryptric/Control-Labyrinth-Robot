@@ -1,17 +1,79 @@
 import time
 from math import sqrt
 
+import cv2
 import numpy as np
-from engineering_notation import EngNumber as eng
+# TODO from engineering_notation import EngNumber as eng
 from scipy.interpolate import interp1d
+from scipy.stats import multivariate_normal
 
 from Params import *
-
+from utils.FrameUtils import *
 
 # TODO refactor this, utility functions should not manage/contain state
 # always length 2, and index 1 hold most recent angle
 prev_x_angles = [0, 0]
 prev_y_angles = [0, 0]
+
+
+def create_label(x_pos, y_pos, variance=10, img_width=240, img_height=180):
+	x = np.arange(img_width)
+	y = np.arange(img_height)
+	X, Y = np.meshgrid(x, y)
+	mu = np.array([x_pos, y_pos])
+	sigma = np.array([[variance, 0], [0, variance]])
+	pos = np.empty(X.shape + (2,))
+	pos[:, :, 0] = X
+	pos[:, :, 1] = Y
+	rv = multivariate_normal(mu, sigma)
+	pd = rv.pdf(pos)
+	return pd
+
+
+p_vals =   [[44,  34,  6,   0,  17,  25,  20,  32,  48],
+			[39,   8,  8,  54,  27,  30,  21,  21,  38],
+			[ 9,   3, 80, 173,  72,  36,  26,  26,  28],
+			[15,  12, 78, 255, 248,  91,  54,  24,  24],
+			[12,  13, 37,  96, 184, 247, 179,  32,  22],
+			[23,  10, 10,  24,  61, 111, 103,  43,  24],
+			[22,  13, 38, 150, 143,  39,  21,  10,  31],
+			[40,  32, 19,  71,  76,  29,  29,   9,  38],
+			[54,  46, 51,  18,   7,  23,  16,  31,  45]]
+pattern = np.array(p_vals, dtype=np.uint8)
+#pattern = (
+#np.array([
+#	[21, 8, 10, 20, 18, 10, 4, 12],
+#	[12, 0, 2, 31, 37, 30, 7, 12],
+#	[9, 1, 73, 180, 255, 230, 99, 13],
+#	[11, 5, 27, 68, 109, 146, 111, 70],
+#	[11, 2, 18, 32, 64, 79, 52, 19],
+#	[10, 1, 5, 12, 37, 49, 28, 4],
+#	[10, 1, 0, 0, 13, 21, 7, 0],
+#	[13, 5, 3, 0, 1, 6, 0, 0]
+#], dtype=np.uint8))
+pattern_offset = np.array([5, 5])
+def find_center4(frame):
+	res = cv2.matchTemplate(frame, pattern, cv2.TM_CCOEFF)
+	min_val, max_val, min_loc, max_loc = cv2.minMaxLoc(res)
+	if max_val > 100_000:
+		return np.array([max_loc[0], max_loc[1]]) + pattern_offset
+	else:
+		return np.array([0, 0])
+
+
+def find_center2(pdf, template_size=13):
+	center = int(template_size / 2)
+	template = create_label(center, center, img_width=template_size, img_height=template_size)
+	template = template.astype(np.float32)
+	res = cv2.matchTemplate(pdf.astype(np.float32), template, method=cv2.TM_SQDIFF)
+	min_val, max_val, min_loc, max_loc = cv2.minMaxLoc(res)
+	min_x, min_y = min_loc
+	return min_x + center, min_y + center
+
+
+def find_center3(frame):
+	pos = np.unravel_index(frame.argmax(), frame.shape)
+	return pos[::-1]
 
 def find_center(output, is_weighted=True):
 	center_output = np.where(output == np.amax(output))
@@ -24,6 +86,8 @@ def find_center(output, is_weighted=True):
 		for j in range(17):
 			x = i - 8 + x_t
 			y = j - 8 + y_t
+			if x < 0 or y < 0 or y >= IMG_SIZE_Y or x >= IMG_SIZE_X:
+				continue
 			xsum += output[y][x] * x
 			ysum += output[y][x] * y
 			msum += output[y][x]
@@ -47,6 +111,68 @@ def find_center(output, is_weighted=True):
 		x_t = x_t + 0.5 * xd
 		y_t = y_t + 0.5 * yd
 	return x_t, y_t
+
+
+def get_transform_matrices():
+	corner_bl = calc_corrected_pos(P_CORNER_BL, 0, 0)
+	corner_br = calc_corrected_pos(P_CORNER_BR, 0, 0)
+	corner_tr = calc_corrected_pos(P_CORNER_TR, 0, 0)
+	corner_tl = calc_corrected_pos(P_CORNER_TL, 0, 0)
+	coordinate_transform_mat = calc_transform_mat([corner_bl, corner_br, corner_tr, corner_tl])
+
+	mm2px_mat = calc_mm2px_mat(coordinate_transform_mat, corner_bl, corner_br, corner_tr, corner_tl)
+
+	return coordinate_transform_mat, mm2px_mat
+
+
+def approx_angle(displacement, r):
+	return 1 / 410 * ( - ((sqrt(2500 * displacement**2 * r - 100 * displacement * (r**2 - 168100) + r**3)) / (sqrt(r))) - 50 * displacement + r)
+
+
+def approx_angle2(d, r):
+	return -((sqrt((50 * d * r + r**2)**2 - 16810000 * d * r) - 50 * d * r - r**2)/(410 * r))
+
+
+def calc_displacement_smm(x, a):
+	return ((41 * x * np.cos(a))/(5 * (410 + x * np.sin(a)))) - (x / 50)
+
+
+def calc_board_angle(frame, original_focal_pos, prev_x_angle=0, prev_y_angle=0):
+	focal_x_pos = detect_focal_x(frame)
+	focal_y_pos = detect_focal_y(frame)
+	focal_pos = np.array([focal_x_pos[0], focal_y_pos[1]])
+	focal_displacement_px = original_focal_pos - focal_pos
+	focal_displacement_px = focal_displacement_px * (-1)  # camera mirrors image
+	focal_displacement_px[1] *= -1  # x marker is on negative side (center coordinates), while y marker is on positive side
+	focal_displacement_mm = focal_displacement_px * PIXEL_SIZE
+	try:
+		angle_x = approx_angle2(focal_displacement_mm[0], -140) if focal_x_pos[0] != 0 and focal_x_pos[1] != 0 else prev_x_angle
+		angle_y = approx_angle2(focal_displacement_mm[1], -110) if focal_y_pos[0] != 0 and focal_y_pos[1] != 0 else prev_y_angle
+		return angle_y, angle_x
+	except:
+		return prev_x_angle, prev_y_angle
+
+
+def calc_corrected_pos(pos, angle_x, angle_y):
+	pos = pos - np.array([IMG_SIZE_X / 2, IMG_SIZE_Y / 2])
+	pos = pos * PIXEL_SIZE
+	pos = pos * -1
+
+	# beta is angle angle x
+	lambda_x = -5 * pos[0] * np.sin(angle_x) * np.cos(angle_y) + 41 * np.cos(angle_x)
+	lambda_y = 5 * pos[0] * np.sin(angle_y)
+	lambda_b = -2050 * pos[0]
+
+	phi_x = -5 * pos[1] * np.sin(angle_x) * np.cos(angle_y) + 41 * np.sin(angle_x) * np.sin(angle_y)
+	phi_y = 41 * np.cos(angle_y) + 5 * pos[1] * np.sin(angle_y)
+	phi_b = -2050 * pos[1]
+
+	factor = 1 / (lambda_x * phi_y - lambda_y * phi_x)
+
+	px = factor * (lambda_b * phi_y - lambda_y * phi_b)
+	py = factor * (-lambda_b * phi_x + lambda_x * phi_b)
+
+	return np.array([px, py]) + np.array([IMG_SIZE_X / 2, IMG_SIZE_Y / 2])
 
 
 def map_value_range(x, in_min, in_max, out_min, out_max):
@@ -122,12 +248,18 @@ def calc_distance(x, y):
 	return np.linalg.norm(x - y)
 
 
-def interpolate(data):
+def calc_projection_factor(base_point, target, vector):
+	u = target - base_point
+	v = vector - base_point
+	return (u @ v) / (u @ u)
+
+
+def interpolate(data, n=3000):
 	# https://stackoverflow.com/questions/52014197/how-to-interpolate-a-2d-curve-in-python
 	distance = np.cumsum(np.sqrt(np.sum(np.diff(data, axis=0) ** 2, axis=1)))
 	distance = np.insert(distance, 0, 0) / distance[-1]
 
-	alpha = np.linspace(0, 1, 3000)
+	alpha = np.linspace(0, 1, n)
 	interpolator = interp1d(distance, data, kind="quadratic", axis=0)
 	return interpolator(alpha)
 
@@ -141,8 +273,8 @@ def gen_reference_path(pos, target):
 
 def gen_circ():
 	n = 450
-	w_x = np.cos(np.linspace(0, 2 * np.pi, n, endpoint=False)) * 90 + 150
-	w_y = np.sin(np.linspace(0, 2 * np.pi, n, endpoint=False)) * 90 + 140
+	w_x = np.cos(np.linspace(0, 2 * np.pi, n, endpoint=False)) * 90 + 137.5
+	w_y = np.sin(np.linspace(0, 2 * np.pi, n, endpoint=False)) * 90 + 115
 	w = np.stack((w_x, w_y), axis=1)
 	return w
 
@@ -172,16 +304,42 @@ def gen_path():
 	return interpolate(path)
 
 
+def gen_path_labyrinth():
+	path = np.load("path-labyrinth.npy")
+	path[:, 0] = path[:, 0] - 3
+	return interpolate(path)
+
+
+def gen_path_custom_labyrinth1():
+	path = np.load("path-custom-labyrinth-1.npy")
+	path[:, 0] = path[:, 0] - 3
+	return interpolate(path, n=1500)
+
+
+def gen_path_custom_labyrinth2():
+	path = np.load("path-custom-labyrinth-2.npy")
+	path[:, 0] = path[:, 0] - 3
+	path = interpolate(path, n=750)
+	path[:, 1] = path[:, 1] - 8
+	path[:, 0] = path[:, 0] - 3
+	return path
+
+
+def gen_path_simple_labyrinth():
+	path = np.load("path-simple-labyrinth.npy")
+	path[:, 0] = path[:, 0] - 3
+	path[:, 1] = (path[:, 1] - BOARD_LENGTH_Y / 2) * 0.95 + BOARD_LENGTH_Y / 2
+	path[:, 0] = (path[:, 0] - BOARD_LENGTH_X) * 0.97 + BOARD_LENGTH_X - 5
+	return interpolate(path, n=2000)
+
+
 def calc_following_mse(recorded_data):
-	# ignore first 5 seconds to give the ball some time to catch up, otherwise starting point has huge influence on quality measure
-	recorded_data = recorded_data[int(5 * 1 / dt):]
-	n = len(recorded_data)
-	error = 0
-	for i in range(n - 1):
-		_, ref, _, _ = recorded_data[i]
-		x_next, _, _, _ = recorded_data[i + 1]
-		error += (x_next[0] - ref[0]) ** 2
-	return error / (n - 1)
+	# ignore first 10 seconds to give the ball some time to catch up, otherwise starting point has huge influence on quality measure
+	recorded_data = recorded_data[int(10 * 1 / dt):]
+	positions = np.array([x[0] for x, _, _, _, _ in recorded_data])
+	next_ref_points = np.array([ref[0] for _, _, ref, _, _ in recorded_data])
+	errors = (positions[1:] - next_ref_points[0:-1]) ** 2
+	return np.sum(errors) / (errors.shape[0])
 
 
 def calc_control_signal_smoothness_measure(recorded_data):
@@ -189,8 +347,8 @@ def calc_control_signal_smoothness_measure(recorded_data):
 	n = len(recorded_data)
 	measure = 0
 	for i in range(n - 1):
-		_, _, _, signal = recorded_data[i]
-		_, _, _, signal_next = recorded_data[i + 1]
+		_, _, _, _, signal = recorded_data[i]
+		_, _, _, _, signal_next = recorded_data[i + 1]
 		measure += abs(signal[0] - signal_next[0])
 	return measure / (n - 1)
 
@@ -250,10 +408,10 @@ class Timer:
 		timing_median = np.median(a)
 		timing_min = np.min(a)
 		timing_max = np.max(a)
-		s = '{} n={}: {}s +/- {}s (median {}s, min {}s max {}s)'.format(self.timer_name, len(a),
-																		eng(timing_mean), eng(timing_std),
-																		eng(timing_median), eng(timing_min),
-																		eng(timing_max))
+		s = "" # TODO '{} n={}: {}s +/- {}s (median {}s, min {}s max {}s)'.format(self.timer_name, len(a),
+				#														eng(timing_mean), eng(timing_std),
+				#														eng(timing_median), eng(timing_min),
+				#														eng(timing_max))
 		b = np.array(enter_times[self.timer_name])
 		b = 1 / (b[1:] - b[:-1])
 		freq_mean = np.mean(b)
