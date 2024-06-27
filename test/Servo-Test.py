@@ -13,7 +13,7 @@ entry2 = tk.Entry(root)
 canvas1.create_window(200, 100, window=entry1)
 canvas1.create_window(200, 140, window=entry2)
 
-arduino = serial.Serial('/dev/ttyUSB0', 115200, timeout=5)
+arduino = serial.Serial('/dev/ttyUSB1', 115200, timeout=5)
 print("arduino connected")  # connect to arduino
 
 

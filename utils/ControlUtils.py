@@ -329,9 +329,9 @@ def gen_path_custom_labyrinth2():
 def gen_path_simple_labyrinth():
 	path = np.load("path-simple-labyrinth.npy")
 	path[:, 0] = path[:, 0] - 3
-	path[:, 1] = (path[:, 1] - BOARD_LENGTH_Y / 2) * 0.95 + BOARD_LENGTH_Y / 2
-	path[:, 0] = (path[:, 0] - BOARD_LENGTH_X) * 0.97 + BOARD_LENGTH_X - 3
-	return interpolate(path, n=1000)
+	path[:, 1] = (path[:, 1] - BOARD_LENGTH_Y / 2) * 0.97 + BOARD_LENGTH_Y / 2
+	path[:, 0] = (path[:, 0] - BOARD_LENGTH_X) * 0.97 + BOARD_LENGTH_X
+	return interpolate(path, n=2000)
 
 
 def calc_following_mse(recorded_data):
