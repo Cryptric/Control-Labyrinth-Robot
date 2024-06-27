@@ -36,11 +36,15 @@ void loop() {
         int x_val = (int) servoControls.substring(0, xy_separator_position).toInt();
         int y_val = (int) servoControls.substring(xy_separator_position + 1).toInt();
 
-        if (CHECK_SERVO_PW(x_val) && CHECK_SERVO_PW(y_val)) {
-            led_state = !led_state;
-            digitalWrite(LED_PIN, led_state);
-            servo_x.writeMicroseconds(x_val);
-            servo_y.writeMicroseconds(y_val);
-        }
+        x_val = max(x_val, SERVO_MIN_PW);
+        x_val = min(x_val, SERVO_MAX_PW);
+
+        y_val = max(y_val, SERVO_MIN_PW);
+        y_val = min(y_val, SERVO_MAX_PW);
+
+        led_state = !led_state;
+        digitalWrite(LED_PIN, led_state);
+        servo_x.writeMicroseconds(x_val);
+        servo_y.writeMicroseconds(y_val);
     }
 }
