@@ -56,6 +56,7 @@ def plot(data_queue, termination_event, target_pos_queue, line_plot_labels, corn
 	pred_trajectory_plot, = ax[0].plot([], [], marker="x", label="Predicted trajectory", markersize=2, c="green")
 
 	ax[1].set_xticks([])
+	ax[1].set_yticks([0])
 	ax[1].set_title("Control signal")
 	line_plots = []
 	for label in line_plot_labels:

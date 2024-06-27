@@ -71,7 +71,7 @@ class MPC:
 		angle_disturbance = 0
 		if len(self.delay_compensated_state_queue) >= STEPS_DEAD_TIME:
 			e = current_xk_measured[0] - self.delay_compensated_state_queue[-1][0]
-			if e <= 20:
+			if np.abs(e) <= 10:
 				P = DISTURBANCE_APPROXIMATION_PROPORTIONAL * e
 				I = self.angle_disturbance_integral + e * DISTURBANCE_APPROXIMATION_INTEGRAL * dt
 				D = DISTURBANCE_APPROXIMATION_DIFFERENTIAL * (e - self.angle_disturbance_e) / dt
@@ -93,8 +93,8 @@ class MPC:
 		signal = solve_qp(P=self.P_sparse, G=self.G_sparse, h=self.h, q=q, lb=self.lb, ub=self.ub, solver="osqp", initvals=self.prev_signal)
 		self.prev_signal = signal
 		self.control_signal_queue.insert(0, signal[0])
-		self.control_signal_queue.pop(-1)
-		return signal, angle_disturbance, xk_delay_compensated
+		prev_signal = self.control_signal_queue.pop(-1)
+		return signal, angle_disturbance, xk_delay_compensated, np.sign(prev_signal) != np.sign(signal[0])
 
 	def get_predicted_state(self, xk, control_signal):
 		return self.V0 @ xk + self.S0 @ control_signal

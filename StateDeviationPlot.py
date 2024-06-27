@@ -34,8 +34,8 @@ def align_data(data_x, data_y):
 	outliers = 0
 
 	for i in range(n):
-		state_x, state_delay_compensated_x, ref_x, pred_x, _ = data_x[i]
-		state_y, state_delay_compensated_y, ref_y, pred_y, _ = data_y[i]
+		state_x, state_delay_compensated_x, ref_x, pred_x, _, _ = data_x[i]
+		state_y, state_delay_compensated_y, ref_y, pred_y, _, _ = data_y[i]
 
 		state_x_ppi = data_x[i + 1][0]
 		state_y_ppi = data_y[i + 1][0]
@@ -84,7 +84,7 @@ def axis_deviation(data):
 	outliers = 0
 
 	for i in range(n):
-		state, state_delay_compensated, ref, pred, _ = data[i]
+		state, state_delay_compensated, ref, pred, _, _ = data[i]
 
 		state_ppi = data[i + 1][0]
 		value = pred[0] - state_ppi[0]
@@ -115,8 +115,8 @@ def delay_compensated_vs_actual_state(recorded_data_x, recorded_data_y):
 	actual_positions = []
 	n = len(recorded_data_x) - STEPS_DEAD_TIME
 	for i in range(n):
-		_, state_delay_compensated_x, _, _, _ = recorded_data_x[i]
-		_, state_delay_compensated_y, _, _, _ = recorded_data_y[i]
+		_, state_delay_compensated_x, _, _, _, _ = recorded_data_x[i]
+		_, state_delay_compensated_y, _, _, _, _ = recorded_data_y[i]
 
 		state_x_fi = recorded_data_x[i + STEPS_DEAD_TIME][0]
 		state_y_fi = recorded_data_y[i + STEPS_DEAD_TIME][0]
@@ -134,14 +134,14 @@ def delay_compensated_vs_actual_state(recorded_data_x, recorded_data_y):
 
 
 def main():
-	# with open("recorded_x.pkl", "rb") as f:
-	# 	recorded_data_x = pickle.load(f)
+	with open("recorded_x.pkl", "rb") as f:
+		recorded_data_x = pickle.load(f)
 #
-	# with open("recorded_y.pkl", "rb") as f:
-	# 	recorded_data_y = pickle.load(f)
+	with open("recorded_y.pkl", "rb") as f:
+		recorded_data_y = pickle.load(f)
 
-	with open("store/data_2024-06-02_11-20-45.906767.pkl", "rb") as f:
-		recorded_data_x, recorded_data_y = pickle.load(f)
+	# with open("store/data_2024-06-02_11-20-45.906767.pkl", "rb") as f:
+	# 	recorded_data_x, recorded_data_y = pickle.load(f)
 
 
 	ref_points, actual_points, ref_pred, n, outliers = align_data(recorded_data_x, recorded_data_y)
@@ -199,7 +199,7 @@ def main():
 		ax.set_xlabel("[mm]")
 		ax.set_ylabel("[mm]")
 		ax.grid()
-		ax.legend()
+		ax.legend(bbox_to_anchor=(1.1, 1.05))
 		print(f"removed {outliers_delay_compensation_plot} from {n} datapoints for delay compensation plot")
 
 	print(f"removed {outliers} outliers from {n} datapoints")

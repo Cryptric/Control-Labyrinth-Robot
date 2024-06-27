@@ -21,3 +21,12 @@ To set up this project follow these steps:
     ```bash
    pip install -r requirements.txt
     ```
+   
+
+### Servo Control
+#### X-Axis
+- low pw moves board at 0 point up
+- high pw moves board at 0 point down
+#### Y-Axis
+- low pw moves board at 0 point up
+- high pw moves board at 0 point down

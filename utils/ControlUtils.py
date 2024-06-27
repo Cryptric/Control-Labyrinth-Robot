@@ -198,7 +198,8 @@ def send_control_signal(arduino, angle_x, angle_y):
 	pw_x = map_value_range(angle_x, 0, 180, SERVO_MIN_PULSE_WIDTH, SERVO_MAX_PULSE_WIDTH)
 	pw_y = map_value_range(angle_y, 0, 180, SERVO_MIN_PULSE_WIDTH, SERVO_MAX_PULSE_WIDTH)
 
-	arduino.write(bytes("{},{};".format(pw_x, pw_y), 'utf-8'))
+	signal = "{},{};".format(pw_x, pw_y)
+	arduino.write(bytes(signal, 'utf-8'))
 
 
 def get_backlash_compensation_term(prev_angles, angle, backlash_table):
@@ -329,15 +330,15 @@ def gen_path_simple_labyrinth():
 	path = np.load("path-simple-labyrinth.npy")
 	path[:, 0] = path[:, 0] - 3
 	path[:, 1] = (path[:, 1] - BOARD_LENGTH_Y / 2) * 0.95 + BOARD_LENGTH_Y / 2
-	path[:, 0] = (path[:, 0] - BOARD_LENGTH_X) * 0.97 + BOARD_LENGTH_X - 5
-	return interpolate(path, n=2000)
+	path[:, 0] = (path[:, 0] - BOARD_LENGTH_X) * 0.97 + BOARD_LENGTH_X - 3
+	return interpolate(path, n=1000)
 
 
 def calc_following_mse(recorded_data):
 	# ignore first 10 seconds to give the ball some time to catch up, otherwise starting point has huge influence on quality measure
 	recorded_data = recorded_data[int(10 * 1 / dt):]
-	positions = np.array([x[0] for x, _, _, _, _ in recorded_data])
-	next_ref_points = np.array([ref[0] for _, _, ref, _, _ in recorded_data])
+	positions = np.array([x[0] for x, _, _, _, _, _ in recorded_data])
+	next_ref_points = np.array([ref[0] for _, _, ref, _, _, _ in recorded_data])
 	errors = (positions[1:] - next_ref_points[0:-1]) ** 2
 	return np.sum(errors) / (errors.shape[0])
 
@@ -347,8 +348,8 @@ def calc_control_signal_smoothness_measure(recorded_data):
 	n = len(recorded_data)
 	measure = 0
 	for i in range(n - 1):
-		_, _, _, _, signal = recorded_data[i]
-		_, _, _, _, signal_next = recorded_data[i + 1]
+		_, _, _, _, signal, _ = recorded_data[i]
+		_, _, _, _, signal_next, _ = recorded_data[i + 1]
 		measure += abs(signal[0] - signal_next[0])
 	return measure / (n - 1)
 

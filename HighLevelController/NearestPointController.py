@@ -9,6 +9,7 @@ class NearestPointController(HighLevelController):
 	def __init__(self, path):
 		self.max_future_index = 5
 		self.max_freeze_iterations = 20
+		self.signal_multiplier_update_period = 10
 
 		self.path = np.zeros((path.shape[0] + N + self.max_future_index, 2))
 		self.path[0:path.shape[0], :] = path
@@ -32,14 +33,16 @@ class NearestPointController(HighLevelController):
 					distance_nearest = distance
 			if nearest == self.index:
 				self.freeze_iterations += 1
-				if self.freeze_iterations >= self.max_freeze_iterations:
+				if self.freeze_iterations >= self.max_freeze_iterations and (self.freeze_iterations - self.max_freeze_iterations) % self.signal_multiplier_update_period == 0:
 					self.signal_multiplier = min(self.signal_multiplier + 0.1, 2.5)
-					print(f"signal_multiplier: {self.signal_multiplier}")
+					# print(f"signal_multiplier: {self.signal_multiplier}")
 			else:
 				self.freeze_iterations = 0
-				self.signal_multiplier = 1
+				self.signal_multiplier = max(1.0, 0.99 + (self.signal_multiplier - 1) / 2)
 			self.index = nearest
 			return self.path[self.index:self.index + N]
 
-	def get_signal_multiplier(self):
+	def get_signal_multiplier(self, deactivate):
+		if deactivate:
+			self.signal_multiplier = 1
 		return self.signal_multiplier

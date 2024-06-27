@@ -56,10 +56,12 @@ def update(consumer_conn: Connection, frame_buffer, cue_net, mpc_x, mpc_y, path_
 
 				# target_trajectory = w_circ[0:N]
 
-				signal_x_rad, disturbance_compensation_x, xkp_x = mpc_x.get_control_signal(target_trajectory[:, 0], xk_x)
-				signal_y_rad, disturbance_compensation_y, xkp_y = mpc_y.get_control_signal(target_trajectory[:, 1], xk_y)
+				signal_x_rad, disturbance_compensation_x, xkp_x, deactivate_multiplier_x = mpc_x.get_control_signal(target_trajectory[:, 0], xk_x)
+				signal_y_rad, disturbance_compensation_y, xkp_y, deactivate_multiplier_y = mpc_y.get_control_signal(target_trajectory[:, 1], xk_y)
 
-				signal_multiplier = path_controller.get_signal_multiplier()
+				signal_multiplier = path_controller.get_signal_multiplier(deactivate_multiplier_x or deactivate_multiplier_y)
+
+				print(f"disturbance correction: x={disturbance_compensation_x:.4f}, y={disturbance_compensation_y:.4f}")
 
 				signal_x_deg = (signal_x_rad[0] + disturbance_compensation_x) * 180 / np.pi * signal_multiplier
 				signal_y_deg = (signal_y_rad[0] + disturbance_compensation_y) * 180 / np.pi * signal_multiplier
@@ -72,8 +74,8 @@ def update(consumer_conn: Connection, frame_buffer, cue_net, mpc_x, mpc_y, path_
 				w_circ = np.roll(w_circ, -1, axis=0)
 
 				# recording
-				recorded_data_x.append((xk_x, xkp_x, target_trajectory[0:N, 0], predicted_state_x, signal_x_rad))
-				recorded_data_y.append((xk_y, xkp_y, target_trajectory[0:N, 1], predicted_state_y, signal_y_rad))
+				recorded_data_x.append((xk_x, xkp_x, target_trajectory[0:N, 0], predicted_state_x, (signal_x_rad + disturbance_compensation_x) * signal_multiplier, angle_x))
+				recorded_data_y.append((xk_y, xkp_y, target_trajectory[0:N, 1], predicted_state_y, (signal_y_rad + disturbance_compensation_y) * signal_multiplier, angle_y))
 
 				return x_mm, y_mm, signal_x_deg, signal_y_deg
 			except EOFError:
@@ -125,8 +127,8 @@ def main():
 	target_pos_x = 0
 	target_pos_y = 0
 
-	prev_pos_x = 0
-	prev_pos_y = 0
+	ball_pos = find_center4(frame)
+	[prev_pos_x, prev_pos_y] = apply_transform(coordinate_transform_mat, calc_corrected_pos(ball_pos, 0, 0))
 
 	prev_signal_x = 0
 	prev_signal_y = 0
