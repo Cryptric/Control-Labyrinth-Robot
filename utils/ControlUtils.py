@@ -1,8 +1,10 @@
 import time
+from collections import deque
 from math import sqrt
 
 import cv2
 import numpy as np
+import scipy
 # TODO from engineering_notation import EngNumber as eng
 from scipy.interpolate import interp1d
 from scipy.stats import multivariate_normal
@@ -214,6 +216,11 @@ def calc_speed(pos, prev_pos, dt):
 	return (pos - prev_pos) / dt
 
 
+def low_speed_boost_factor(speed):
+	factor = - np.arctan(abs(speed)) / np.pi * 4 + 3
+	return factor
+
+
 def solve_quad(a, b, c):
 	r = sqrt(b ** 2 - 4 * a * c)
 	x1 = (-b + r) / (2 * a)
@@ -336,21 +343,20 @@ def gen_path_simple_labyrinth():
 
 def calc_following_mse(recorded_data):
 	# ignore first 10 seconds to give the ball some time to catch up, otherwise starting point has huge influence on quality measure
-	recorded_data = recorded_data[int(10 * 1 / dt):]
-	positions = np.array([x[0] for x, _, _, _, _, _ in recorded_data])
-	next_ref_points = np.array([ref[0] for _, _, ref, _, _, _ in recorded_data])
+	positions = np.array(recorded_data["state"])[int(10 / dt):, 0]
+	next_ref_points = np.array(recorded_data["target_trajectory"])[int(10 / dt):, 0]
 	errors = (positions[1:] - next_ref_points[0:-1]) ** 2
 	return np.sum(errors) / (errors.shape[0])
 
 
 def calc_control_signal_smoothness_measure(recorded_data):
-	recorded_data = recorded_data[int(5 * 1 / dt):]
-	n = len(recorded_data)
+	control_signals = np.array(recorded_data["mpc_signal"])[int(10 * 1 / dt):, 0]
+	n = len(control_signals)
 	measure = 0
 	for i in range(n - 1):
-		_, _, _, _, signal, _ = recorded_data[i]
-		_, _, _, _, signal_next, _ = recorded_data[i + 1]
-		measure += abs(signal[0] - signal_next[0])
+		signal = control_signals[i]
+		signal_next = control_signals[i + 1]
+		measure += abs(signal - signal_next)
 	return measure / (n - 1)
 
 
@@ -431,3 +437,20 @@ class Timer:
 def print_timers():
 	for _, timer in timers.items():
 		timer.print_timing_info()
+
+
+# https://www.samproell.io/posts/yarppg/yarppg-live-digital-filter/
+class SignalFilter:
+	def __init__(self):
+		self.b, self.a = scipy.signal.iirfilter(4, Wn=7, fs=1/dt, btype="low", ftype="butter")
+		self._xs = deque([0] * len(self.b), maxlen=len(self.b))
+		self._ys = deque([0] * (len(self.a) - 1), maxlen=len(self.a)-1)
+
+	def __call__(self, x):
+		"""Filter incoming data with standard difference equations.
+		"""
+		self._xs.appendleft(x)
+		y = np.dot(self.b, self._xs) - np.dot(self.a[1:], self._ys)
+		y = y / self.a[0]
+		self._ys.appendleft(y)
+		return y

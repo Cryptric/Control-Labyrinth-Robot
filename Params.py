@@ -57,7 +57,7 @@ g = 9.8 * 1000
 
 dt = 1 / 45.6
 
-STEPS_DEAD_TIME = 3
+STEPS_DEAD_TIME = 2
 
 N = 20
 Q = 1
