@@ -9,11 +9,12 @@ plt.rcParams.update({'font.size': 24})
 
 
 def calc_acceleration(recorded_data, cutoff=10):
-	n = len(recorded_data) - cutoff
+	states = np.array(recorded_data["state"])
+	n = states.shape[0] - cutoff
 	accelerations = np.zeros(n - 1)
 	prev_velocity = 0
 	for i in range(n - 1):
-		state, _, _, _, _ = recorded_data[i + cutoff]
+		state = states[i + cutoff]
 		velocity = state[1]
 		acceleration = (velocity - prev_velocity) / dt
 		accelerations[i] = acceleration
@@ -22,11 +23,14 @@ def calc_acceleration(recorded_data, cutoff=10):
 
 
 def get_servo_angles(recorded_data, cutoff=10):
-	n = len(recorded_data) - cutoff
+	mpc_signals = recorded_data["mpc_signal"]
+	disturbance_compensations = recorded_data["disturbance_compensation"]
+	signal_multipliers = recorded_data["signal_multiplier"]
+	n = len(disturbance_compensations) - cutoff
 	servo_angles = np.zeros(n)
 	for i in range(n):
-		_, _, _, _, signal = recorded_data[i + cutoff]
-		servo_angles[i] = signal[0]
+		signal = (mpc_signals[i + cutoff][0] + disturbance_compensations[i + cutoff]) * signal_multipliers[i + cutoff]
+		servo_angles[i] = signal
 	return servo_angles
 
 
@@ -38,9 +42,11 @@ def main():
 		recoded_data_y = pickle.load(f)
 
 	servo_angle_factor = 10000
+	board_angle_facter = 100000
 
 	acc_x, acc_y = calc_acceleration(recoded_data_x), calc_acceleration(recoded_data_y)
 	servo_angles_x, servo_angles_y = get_servo_angles(recoded_data_x), get_servo_angles(recoded_data_y)
+	board_angle_x, board_angle_y = np.array(recoded_data_x["board_angle"]), np.array(recoded_data_y["board_angle"])
 
 	n = acc_x.shape[0]
 
@@ -52,6 +58,9 @@ def main():
 
 	axs.plot(x_axis, servo_angles_x[:-1] * servo_angle_factor, 'b-.', label="Servo angle X")
 	# axs.plot(x_axis, servo_angles_y[:-1] * servo_angle_factor, 'r-.', label="Servo angle Y")
+
+	axs.plot(x_axis, board_angle_x[10:-1] * board_angle_facter, 'b:', label="Approximated Board Angle X")
+	# axs.plot(x_axis, board_angle_y[10:-1] * board_angle_factor, 'r:', label="Approximated Board Angle Y")
 
 	plt.legend()
 	plt.grid()

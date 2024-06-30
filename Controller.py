@@ -22,9 +22,12 @@ import matplotlib
 
 w_circ = gen_circ()
 
+filter_x = SignalFilter()
+filter_y = SignalFilter()
+
 # tuple, of (system state, reference trajectory, predicted trajectory)
-recorded_data_x = []
-recorded_data_y = []
+recorded_data_x = {"state": [], "delay_compensated_state": [], "target_trajectory": [], "predicted_state": [], "mpc_signal": [], "signal_multiplier": [], "disturbance_compensation": [], "board_angle": []}
+recorded_data_y = {"state": [], "delay_compensated_state": [], "target_trajectory": [], "predicted_state": [], "mpc_signal": [], "signal_multiplier": [], "disturbance_compensation": [], "board_angle": []}
 prev_angles = np.array([0, 0], dtype=np.float64)
 
 
@@ -61,21 +64,46 @@ def update(consumer_conn: Connection, frame_buffer, cue_net, mpc_x, mpc_y, path_
 
 				signal_multiplier = path_controller.get_signal_multiplier(deactivate_multiplier_x or deactivate_multiplier_y)
 
-				print(f"disturbance correction: x={disturbance_compensation_x:.4f}, y={disturbance_compensation_y:.4f}")
-
-				signal_x_deg = (signal_x_rad[0] + disturbance_compensation_x) * 180 / np.pi * signal_multiplier
-				signal_y_deg = (signal_y_rad[0] + disturbance_compensation_y) * 180 / np.pi * signal_multiplier
-				send_control_signal(arduino, signal_x_deg, signal_y_deg)
-
 				predicted_state_x = mpc_x.get_predicted_state(xk_x, signal_x_rad)
 				predicted_state_y = mpc_y.get_predicted_state(xk_y, signal_y_rad)
+
+				x_path_diff_norm = np.linalg.norm(target_trajectory[:, 0] - predicted_state_x)
+				y_path_diff_norm = np.linalg.norm(target_trajectory[:, 1] - predicted_state_y)
+				signal_multiplier_x = 1
+				signal_multiplier_y = 1
+				if signal_multiplier != 1:
+					l = signal_multiplier / np.sqrt(x_path_diff_norm**2 + y_path_diff_norm**2)
+					signal_multiplier_x = max(1, l * x_path_diff_norm)
+					signal_multiplier_y = max(1, l * y_path_diff_norm)
+
+				# print(f"disturbance correction: x={disturbance_compensation_x:.4f}, y={disturbance_compensation_y:.4f}")
+
+				signal_x_deg = filter_x((signal_x_rad[0] + disturbance_compensation_x) * 180 / np.pi * signal_multiplier_x)
+				signal_y_deg = filter_y((signal_y_rad[0] + disturbance_compensation_y) * 180 / np.pi * signal_multiplier_y)
+				send_control_signal(arduino, signal_x_deg, signal_y_deg)
+
 
 				plot_queue.put_nowait((frame, None, [x_mm, y_mm], target_trajectory, [predicted_state_x, predicted_state_y], [signal_x_deg, signal_y_deg], [speed_x, speed_y], t))
 				w_circ = np.roll(w_circ, -1, axis=0)
 
 				# recording
-				recorded_data_x.append((xk_x, xkp_x, target_trajectory[0:N, 0], predicted_state_x, (signal_x_rad + disturbance_compensation_x) * signal_multiplier, angle_x))
-				recorded_data_y.append((xk_y, xkp_y, target_trajectory[0:N, 1], predicted_state_y, (signal_y_rad + disturbance_compensation_y) * signal_multiplier, angle_y))
+				recorded_data_x["state"].append(xk_x)
+				recorded_data_x["delay_compensated_state"].append(xkp_x)
+				recorded_data_x["target_trajectory"].append(target_trajectory[0:N, 0])
+				recorded_data_x["predicted_state"].append(predicted_state_x)
+				recorded_data_x["mpc_signal"].append(signal_x_rad)
+				recorded_data_x["signal_multiplier"].append(signal_multiplier_x)
+				recorded_data_x["disturbance_compensation"].append(disturbance_compensation_x)
+				recorded_data_x["board_angle"].append(angle_x)
+
+				recorded_data_y["state"].append(xk_y)
+				recorded_data_y["delay_compensated_state"].append(xkp_y)
+				recorded_data_y["target_trajectory"].append(target_trajectory[0:N, 1])
+				recorded_data_y["predicted_state"].append(predicted_state_y)
+				recorded_data_y["mpc_signal"].append(signal_y_rad)
+				recorded_data_y["signal_multiplier"].append(signal_multiplier_y)
+				recorded_data_y["disturbance_compensation"].append(disturbance_compensation_y)
+				recorded_data_y["board_angle"].append(angle_y)
 
 				return x_mm, y_mm, signal_x_deg, signal_y_deg
 			except EOFError:

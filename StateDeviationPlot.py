@@ -25,20 +25,39 @@ def angle_between(v1, v2):
 
 
 def align_data(data_x, data_y):
+	states_x = np.array(data_x["state"])
+	states_delay_compensated_x = np.array(data_x["delay_compensated_state"])
+	refs_x = np.array(data_x["target_trajectory"])
+	preds_x = np.array(data_x["predicted_state"])
+
+	states_y = np.array(data_y["state"])
+	states_delay_compensated_y = np.array(data_y["delay_compensated_state"])
+	refs_y = np.array(data_y["target_trajectory"])
+	preds_y = np.array(data_y["predicted_state"])
+
 	ref_pred = np.array([0, 1])
 
-	n = len(data_x) - 1
+	n = states_x.shape[0] - 1
 
 	ref_points = []
 	actual_points = []
 	outliers = 0
 
 	for i in range(n):
-		state_x, state_delay_compensated_x, ref_x, pred_x, _, _ = data_x[i]
-		state_y, state_delay_compensated_y, ref_y, pred_y, _, _ = data_y[i]
+		state_x = states_x[i]
+		state_y = states_y[i]
 
-		state_x_ppi = data_x[i + 1][0]
-		state_y_ppi = data_y[i + 1][0]
+		state_delay_compensated_x = states_delay_compensated_x[i]
+		state_delay_compensated_y = states_delay_compensated_y[i]
+
+		ref_x = refs_x[i]
+		ref_y = refs_y[i]
+
+		pred_x = preds_x[i]
+		pred_y = preds_y[i]
+
+		state_x_ppi = states_x[i + 1]
+		state_y_ppi = states_y[i + 1]
 
 		pos = np.array([state_x[0], state_y[0]])
 		pred_pos = np.array([pred_x[0], pred_y[0]])
@@ -79,14 +98,20 @@ def align_data(data_x, data_y):
 
 
 def axis_deviation(data):
-	n = len(data) - 1
 	deviations = []
 	outliers = 0
 
-	for i in range(n):
-		state, state_delay_compensated, ref, pred, _, _ = data[i]
+	states = data["state"]
+	delay_compensated_states = data["delay_compensated_state"]
+	predicted_states = data["predicted_state"]
 
-		state_ppi = data[i + 1][0]
+	n = len(states) - 1
+	for i in range(n):
+		state = states[i]
+		state_delay_compensated = delay_compensated_states[i]
+		pred = predicted_states[i]
+
+		state_ppi = states[i+1]
 		value = pred[0] - state_ppi[0]
 		if abs(value) > 10:
 			outliers += 1
@@ -109,17 +134,24 @@ def statistics(data):
 	return mean, std
 
 
-def delay_compensated_vs_actual_state(recorded_data_x, recorded_data_y):
+def delay_compensated_vs_actual_state(data_x, data_y):
 	outliers_delay_compensation_plot = 0
 
-	actual_positions = []
-	n = len(recorded_data_x) - STEPS_DEAD_TIME
-	for i in range(n):
-		_, state_delay_compensated_x, _, _, _, _ = recorded_data_x[i]
-		_, state_delay_compensated_y, _, _, _, _ = recorded_data_y[i]
+	states_x = np.array(data_x["state"])
+	states_delay_compensated_x = np.array(data_x["delay_compensated_state"])
 
-		state_x_fi = recorded_data_x[i + STEPS_DEAD_TIME][0]
-		state_y_fi = recorded_data_y[i + STEPS_DEAD_TIME][0]
+	states_y = np.array(data_y["state"])
+	states_delay_compensated_y = np.array(data_y["delay_compensated_state"])
+
+	actual_positions = []
+
+	n = states_x.shape[0] - STEPS_DEAD_TIME
+	for i in range(n):
+		state_delay_compensated_x = states_delay_compensated_x[i]
+		state_delay_compensated_y = states_delay_compensated_y[i]
+
+		state_x_fi = states_x[i + STEPS_DEAD_TIME]
+		state_y_fi = states_y[i + STEPS_DEAD_TIME]
 
 		delay_compensated_position = np.array([state_delay_compensated_x[0], state_delay_compensated_y[0]])
 		actual_position = np.array([state_x_fi[0], state_y_fi[0]])
@@ -202,7 +234,7 @@ def main():
 		ax.legend(bbox_to_anchor=(1.1, 1.05))
 		print(f"removed {outliers_delay_compensation_plot} from {n} datapoints for delay compensation plot")
 
-	print(f"removed {outliers} outliers from {n} datapoints")
+	# print(f"removed {outliers} outliers from {n} datapoints")
 
 	heatmap(axs[0])
 	plot_axis_deviation_histogram(axs[1], recorded_data_x, "X")

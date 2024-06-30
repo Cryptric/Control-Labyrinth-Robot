@@ -16,6 +16,20 @@ def main():
 	with open("recorded_y.pkl", "rb") as f:
 		recoded_data_y = pickle.load(f)
 
+	states_x = recoded_data_x["state"]
+	target_trajectory_x = recoded_data_x["target_trajectory"]
+	predicted_state_x = recoded_data_x["predicted_state"]
+	signals_x = recoded_data_x["mpc_signal"]
+	disturbance_compensation_x = recoded_data_x["disturbance_compensation"]
+	signal_multiplier = recoded_data_x["signal_multiplier"]
+
+	states_y = recoded_data_y["state"]
+	target_trajectory_y = recoded_data_y["target_trajectory"]
+	predicted_state_y = recoded_data_y["predicted_state"]
+	signals_y = recoded_data_y["mpc_signal"]
+	disturbance_compensation_x = recoded_data_y["disturbance_compensation"]
+	signal_multiplier = recoded_data_y["signal_multiplier"]
+
 	# Example data (replace this with your own data)
 
 	# Create initial plot
@@ -77,6 +91,17 @@ def main():
 		ax[2].plot(np.arange(len(signal_y_rad)), signal_y_rad, 'r', label='signal y')
 
 	def draw(index):
+		state_x = states_x[index]
+		state_y = states_y[index]
+
+		ref_x = target_trajectory_x[index]
+		ref_y = target_trajectory_y[index]
+
+		pred_x = predicted_state_x[index]
+		pred_y = predicted_state_y[index]
+
+
+
 		state_x, _, ref_x, pred_x, signal_x, _ = recoded_data_x[index]
 		state_y, _, ref_y, pred_y, signal_y, _ = recoded_data_y[index]
 
