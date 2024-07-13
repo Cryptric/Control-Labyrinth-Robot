@@ -81,7 +81,7 @@ def patch_holes(frame, locations, patch_r=8):
 	return frame
 
 
-def detect_labyrinth(frame, ball_pos):
+def detect_labyrinth(frame, ball_pos, with_graph=True):
 	start_x, start_y = 150, 15
 	if ball_pos is not None:
 		start_x, start_y = ball_pos[0], ball_pos[1]
@@ -123,19 +123,24 @@ def detect_labyrinth(frame, ball_pos):
 	start_node_idx = img_idx_2_node_idx(start_x, start_y, lmask)
 	end_node_idx = img_idx_2_node_idx(end_pos[1], end_pos[0], lmask)
 
-	G = gen_graph(lmask)
-	set_edge_weights(G, path_weights)
-	path = nx.shortest_path(G, source=start_node_idx, target=end_node_idx, weight='weight')
-	path_idx_x, path_idx_y = get_path(G, path)
+	G = None
+	path = None
+	path_idx_x = None
+	path_idx_y = None
+	if with_graph:
+		G = gen_graph(lmask)
+		set_edge_weights(G, path_weights)
+		path = nx.shortest_path(G, source=start_node_idx, target=end_node_idx, weight='weight')
+		path_idx_x, path_idx_y = get_path(G, path)
 
 	return frame, bframe, patched_frame, bmframe, bmcframe, with_walls, lbfs, detected_walls, circ_locs_x, circ_locs_y, hole_positions, G, path, path_weights, path_idx_x, path_idx_y
 
 
 def main():
-	frame = load_img("undistorted-full.png")
+	frame = load_img("TestImages/undistorted-full.png")
 	frame = cut(frame)
 
-	frame, bframe, patched_frame, bmframe, bmcframe, with_walls, lbfs, detected_walls, circ_locs_x, circ_locs_y, hole_positions, G, path, path_weights, path_idx_x, path_idx_y = detect_labyrinth(frame)
+	frame, bframe, patched_frame, bmframe, bmcframe, with_walls, lbfs, detected_walls, circ_locs_x, circ_locs_y, hole_positions, G, path, path_weights, path_idx_x, path_idx_y = detect_labyrinth(frame, None, with_graph=False)
 
 	plot_all(frame, bframe, patched_frame, bmframe, bmcframe, with_walls, lbfs, detected_walls, circ_locs_x, circ_locs_y, hole_positions, G, path, path_weights, path_idx_x, path_idx_y)
 
