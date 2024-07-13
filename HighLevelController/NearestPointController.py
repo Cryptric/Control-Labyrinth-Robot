@@ -18,7 +18,7 @@ class NearestPointController(HighLevelController):
 		self.signal_multiplier = 1
 
 	def get_reference_trajectory(self, pos_x, pos_y):
-		if self.index + 3 * self.max_future_index + N >= self.path.shape[0]:
+		if self.index + 6 * self.max_future_index + N >= self.path.shape[0]:
 			self.index = 0
 			return self.path[0:N]
 		else:
@@ -39,7 +39,7 @@ class NearestPointController(HighLevelController):
 				self.freeze_iterations = 0
 				self.signal_multiplier = max(1.0, 0.99 + (self.signal_multiplier - 1) / 2)
 			self.index = nearest
-			return self.path[self.index + 1:self.index + N + 1]
+			return self.path[self.index + 4:self.index + N + 4]
 
 	def get_signal_multiplier(self, deactivate):
 		if deactivate:
