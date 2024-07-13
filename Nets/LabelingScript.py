@@ -45,13 +45,16 @@ def get_labels(images):
 	ax_img.set_xticks([])
 	ax_img.set_yticks([])
 
-	ball_radius = 4
+	ball_radius = 6
 
 	labels = np.zeros((len(images), 2))
 
 	img_plt = ax_img.imshow(images[0], cmap='grey', vmin=0, vmax=255)
 	label_patch = plt.Circle(labels[0], ball_radius, fill=False, color='r')
 	label_plt = ax_img.add_patch(label_patch)
+
+	preview_plt = ax_img.add_patch(plt.Circle((0, 0), ball_radius, fill=False, color='orange'))
+
 	btn_prev = Button(ax_prev, "Previous")
 	btn_next = Button(ax_next, "Next")
 	slider_index = Slider(ax_index, "idx", valmin=0, valmax=len(images)-1, valstep=1, valinit=0)
@@ -87,6 +90,13 @@ def get_labels(images):
 	fig.canvas.mpl_connect('button_press_event', set_label)
 	slider_index.on_changed(lambda v: show_img(v, from_slider=True))
 
+	def set_preview(event):
+		if event.inaxes:
+			preview_plt.set_center((event.xdata, event.ydata))
+			fig.canvas.draw_idle()
+
+	plt.connect("motion_notify_event", set_preview)
+
 	plt.show()
 	return labels
 
@@ -98,9 +108,8 @@ def store_labels(file_names, labels, base_path):
 			f.write(f"{file_names[i]},{labels[i, 0]},{labels[i, 1]}\n")
 
 
-
 def main():
-	path = "MLData/"
+	path = "PlotData/RunMidLabyrinth/"
 	file_names, images = load_images(path)
 	processed_images = [preprocess_img(img) for img in images]
 	labels = get_labels(processed_images)
