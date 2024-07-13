@@ -74,7 +74,7 @@ class MPC:
 			e = current_xk_measured[0] - self.delay_compensated_state_queue[-1][0]
 			if np.abs(e) <= 10:
 				P = DISTURBANCE_APPROXIMATION_PROPORTIONAL * e
-				I = self.angle_disturbance_integral + e * DISTURBANCE_APPROXIMATION_INTEGRAL * dt * low_speed_boost_factor(current_xk_measured[1])
+				I = self.angle_disturbance_integral + e * DISTURBANCE_APPROXIMATION_INTEGRAL * dt
 				D = DISTURBANCE_APPROXIMATION_DIFFERENTIAL * (e - self.angle_disturbance_e) / dt
 				self.angle_disturbance_e = e
 				self.angle_disturbance_integral = np.clip(I, -DISTURBANCE_INTEGRAL_CLIP, DISTURBANCE_INTEGRAL_CLIP)
