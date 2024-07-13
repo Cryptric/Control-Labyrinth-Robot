@@ -5,7 +5,7 @@ from math import sqrt
 import cv2
 import numpy as np
 import scipy
-# TODO from engineering_notation import EngNumber as eng
+from engineering_notation import EngNumber as eng
 from scipy.interpolate import interp1d
 from scipy.stats import multivariate_normal
 
@@ -341,6 +341,14 @@ def gen_path_simple_labyrinth():
 	return interpolate(path, n=2000)
 
 
+def gen_path_medium_labyrinth():
+	path = np.load("path-medium-labyrinth.npy")
+	path[:, 0] = path[:, 0] - 3
+	path[:, 1] = (path[:, 1] - BOARD_LENGTH_Y / 2) * 0.97 + BOARD_LENGTH_Y / 2
+	path[:, 0] = (path[:, 0] - BOARD_LENGTH_X) * 0.97 + BOARD_LENGTH_X
+	return interpolate(path, n=2000)
+
+
 def calc_following_mse(recorded_data):
 	# ignore first 10 seconds to give the ball some time to catch up, otherwise starting point has huge influence on quality measure
 	positions = np.array(recorded_data["state"])[int(10 / dt):, 0]
@@ -415,10 +423,10 @@ class Timer:
 		timing_median = np.median(a)
 		timing_min = np.min(a)
 		timing_max = np.max(a)
-		s = "" # TODO '{} n={}: {}s +/- {}s (median {}s, min {}s max {}s)'.format(self.timer_name, len(a),
-				#														eng(timing_mean), eng(timing_std),
-				#														eng(timing_median), eng(timing_min),
-				#														eng(timing_max))
+		s = '{} n={}: {}s +/- {}s (median {}s, min {}s max {}s)'.format(self.timer_name, len(a),
+																		eng(timing_mean), eng(timing_std),
+																		eng(timing_median), eng(timing_min),
+																		eng(timing_max))
 		b = np.array(enter_times[self.timer_name])
 		b = 1 / (b[1:] - b[:-1])
 		freq_mean = np.mean(b)
