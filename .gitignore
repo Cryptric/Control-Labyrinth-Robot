@@ -771,3 +771,5 @@ recorded_x.pkl
 recorded_y.pkl
 # Test images
 TestImages/
+PlotData/
+report/
