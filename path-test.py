@@ -45,6 +45,7 @@ def plt_with_image():
 	w_path_custom_labyrinth1 = gen_path_custom_labyrinth1()
 	w_path_custom_labyrinth2 = gen_path_custom_labyrinth2()
 	w_path_simple_labyrinth = gen_path_simple_labyrinth()
+	w_path_medium_labyrinth = gen_path_medium_labyrinth()
 
 	w_circ_px = np.array([apply_transform(mm2px_mat, w_circ[i]) for i in range(w_circ.shape[0])])
 	w_lemniscate_px = np.array([apply_transform(mm2px_mat, w_lemniscate[i]) for i in range(w_lemniscate.shape[0])])
@@ -54,6 +55,7 @@ def plt_with_image():
 	w_path_custom_labyrinth1_px = np.array([apply_transform(mm2px_mat, w_path_custom_labyrinth1[i]) for i in range(w_path_custom_labyrinth1.shape[0])])
 	w_path_custom_labyrinth2_px = np.array([apply_transform(mm2px_mat, w_path_custom_labyrinth2[i]) for i in range(w_path_custom_labyrinth2.shape[0])])
 	w_path_simple_labyrinth_px = sequence_apply_transform(mm2px_mat, w_path_simple_labyrinth[:, 0], w_path_simple_labyrinth[:, 1])
+	w_path_medium_labyrinth_px = sequence_apply_transform(mm2px_mat, w_path_medium_labyrinth[:, 0], w_path_medium_labyrinth[:, 1])
 
 	circ_plt, = ax.plot(w_circ_px[:, 0], w_circ_px[:, 1], marker='o')
 	lemniscate_plt, = ax.plot(w_lemniscate_px[:, 0], w_lemniscate_px[:, 1], marker='o')
@@ -63,12 +65,13 @@ def plt_with_image():
 	path_custom_labyrinth1_plt, = ax.plot(w_path_custom_labyrinth1_px[:, 0], w_path_custom_labyrinth1_px[:, 1], marker='x')
 	path_custom_labyrinth2_plt, = ax.plot(w_path_custom_labyrinth2_px[:, 0], w_path_custom_labyrinth2_px[:, 1], marker='x')
 	path_simple_labyrinth_plt, = ax.plot(w_path_simple_labyrinth_px[0], w_path_simple_labyrinth_px[1], marker='x')
+	path_medium_labyrinth_plt, = ax.plot(w_path_medium_labyrinth_px[0], w_path_medium_labyrinth_px[1], marker='x')
 
 	def update(_):
 		frame, _ = consumer_conn.recv()
 		frame = remove_distortion(frame)
 		img_plt.set_array(frame)
-		return img_plt, circ_plt, lemniscate_plt, star_plt, path_plt, path_labyrinth_plt, path_custom_labyrinth1_plt, corner_points_plt, path_custom_labyrinth2_plt, path_simple_labyrinth_plt
+		return img_plt, circ_plt, lemniscate_plt, star_plt, path_plt, path_labyrinth_plt, path_custom_labyrinth1_plt, corner_points_plt, path_custom_labyrinth2_plt, path_simple_labyrinth_plt, path_medium_labyrinth_plt
 
 	anim = FuncAnimation(fig, update, cache_frame_data=False, interval=0)
 	plt.show()
