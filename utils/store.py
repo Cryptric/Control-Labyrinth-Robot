@@ -4,7 +4,7 @@ from StateDeviationPlot import statistics, axis_deviation
 from inputimeout import inputimeout
 
 
-def store(data_x, data_y, start_date, runtime, follow_mse):
+def store(data_x, data_y, start_date, runtime, follow_mse, frames):
 	try:
 		comment = inputimeout(prompt="Comment: ", timeout=10)
 	except:
@@ -21,5 +21,9 @@ def store(data_x, data_y, start_date, runtime, follow_mse):
 
 	with open(f"./store/{file_name}", "wb") as file:
 		pickle.dump((data_x, data_y), file)
+
+	if len(frames) != 0:
+		with open(f"./store/{file_name.replace('data_', 'frames_')}", "wb") as file:
+			pickle.dump(frames, file)
 
 	print("Updated data store")
