@@ -25,10 +25,15 @@ w_circ = gen_circ()
 filter_x = SignalFilter()
 filter_y = SignalFilter()
 
+frames = []
+
 # tuple, of (system state, reference trajectory, predicted trajectory)
 recorded_data_x = {"state": [], "delay_compensated_state": [], "target_trajectory": [], "predicted_state": [], "mpc_signal": [], "signal_multiplier": [], "disturbance_compensation": [], "board_angle": []}
 recorded_data_y = {"state": [], "delay_compensated_state": [], "target_trajectory": [], "predicted_state": [], "mpc_signal": [], "signal_multiplier": [], "disturbance_compensation": [], "board_angle": []}
 prev_angles = np.array([0, 0], dtype=np.float64)
+
+
+c_coordinate_transform_mat = calc_transform_mat([CORNER_BL, CORNER_BR, CORNER_TR, CORNER_TL])
 
 
 def update(consumer_conn: Connection, frame_buffer, cue_net, mpc_x, mpc_y, path_controller, target_pos_x, target_pos_y, coordinate_transform_mat, prev_pos_x, prev_pos_y, prev_signal_x, prev_signal_y, orig_focal_pos, arduino, termination_event: Event, plot_queue: Queue):
@@ -78,10 +83,9 @@ def update(consumer_conn: Connection, frame_buffer, cue_net, mpc_x, mpc_y, path_
 
 				# print(f"disturbance correction: x={disturbance_compensation_x:.4f}, y={disturbance_compensation_y:.4f}")
 
-				signal_x_deg = filter_x((signal_x_rad[0] + disturbance_compensation_x) * 180 / np.pi * signal_multiplier_x)
-				signal_y_deg = filter_y((signal_y_rad[0] + disturbance_compensation_y) * 180 / np.pi * signal_multiplier_y)
+				signal_x_deg = ((signal_x_rad[0] + disturbance_compensation_x) * 180 / np.pi * signal_multiplier_x)
+				signal_y_deg = ((signal_y_rad[0] + disturbance_compensation_y) * 180 / np.pi * signal_multiplier_y)
 				send_control_signal(arduino, signal_x_deg, signal_y_deg)
-
 
 				plot_queue.put_nowait((frame, None, [x_mm, y_mm], target_trajectory, [predicted_state_x, predicted_state_y], [signal_x_deg, signal_y_deg], [speed_x, speed_y], t))
 				w_circ = np.roll(w_circ, -1, axis=0)
@@ -104,6 +108,9 @@ def update(consumer_conn: Connection, frame_buffer, cue_net, mpc_x, mpc_y, path_
 				recorded_data_y["signal_multiplier"].append(signal_multiplier_y)
 				recorded_data_y["disturbance_compensation"].append(disturbance_compensation_y)
 				recorded_data_y["board_angle"].append(angle_y)
+
+				if RECORD_FRAMES:
+					frames.append(frame)
 
 				return x_mm, y_mm, signal_x_deg, signal_y_deg
 			except EOFError:
@@ -200,7 +207,7 @@ def main():
 		pickle.dump(recorded_data_y, f, pickle.HIGHEST_PROTOCOL)
 
 	follow_mse = calc_following_mse(recorded_data_x) + calc_following_mse(recorded_data_y)
-	store(recorded_data_x, recorded_data_y, start_time, time.time() - runtime_start, follow_mse)
+	store(recorded_data_x, recorded_data_y, start_time, time.time() - runtime_start, follow_mse, frames)
 	print(f"Following MSE: {follow_mse}")
 	print(f"Control signal smoothness: {calc_control_signal_smoothness_measure(recorded_data_x) + calc_control_signal_smoothness_measure(recorded_data_y)}")
 	print(f"Camera process: {p.is_alive()}")
