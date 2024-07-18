@@ -86,16 +86,16 @@ def track_process(consumer_conn: Connection, termination_event: Event):
 				focal_displacement_px = focal_displacement_px * (-1)
 				focal_displacement_px[1] *= -1  # x marker is on negative side (center coordinates), while y marker is on positive side
 				focal_displacement_mm = focal_displacement_px * PIXEL_SIZE
-				angle_x = approx_angle2(focal_displacement_mm[0], -140)
-				angle_y = approx_angle2(focal_displacement_mm[1], -110)
+
+				angle_x, angle_y = calc_board_angle(frame, orig_focal_pos)
 
 				ball_pos = find_center4(frame)
 
-				# print(f"Board angle x: {angle_x/np.pi * 180:.2f}°, measured displacement: {focal_displacement_mm[0]}")
-				# print(f"Board angle y: {angle_y/np.pi * 180:.2f}°, measured displacement: {focal_displacement_mm[1]}")
+				print(f"Board angle x: {angle_x/np.pi * 180:.2f}°, measured displacement: {focal_displacement_mm[0]}")
+				print(f"Board angle y: {angle_y/np.pi * 180:.2f}°, measured displacement: {focal_displacement_mm[1]}")
 				angle_x, angle_y = calc_board_angle(frame, orig_focal_pos)
 				corrected_ball_pos = calc_corrected_pos(ball_pos, angle_x, angle_y)
-				print(f"Board ball pos: {apply_transform(coordinate_transform_mat, corrected_ball_pos)}, Corrected ball pos: {corrected_ball_pos}, measured pos: {ball_pos}")
+				# print(f"Board ball pos: {apply_transform(coordinate_transform_mat, corrected_ball_pos)}, Corrected ball pos: {corrected_ball_pos}, measured pos: {ball_pos}")
 
 				pos_plt.set_center(ball_pos)
 				corrected_patch_plt.set_center(corrected_ball_pos)

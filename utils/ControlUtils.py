@@ -127,16 +127,12 @@ def get_transform_matrices():
 	return coordinate_transform_mat, mm2px_mat
 
 
-def approx_angle(displacement, r):
-	return 1 / 410 * ( - ((sqrt(2500 * displacement**2 * r - 100 * displacement * (r**2 - 168100) + r**3)) / (sqrt(r))) - 50 * displacement + r)
+def approx_x_angle(delta_x):
+	return (-sqrt(rx * (-2 * d**3 * s * delta_x + d**2 * rx * delta_x**2 + 2 * d * rx**2 * s * delta_x + rx**3 * s**2)) + d * rx * delta_x + rx**2 * s) / (d * rx * s)
 
 
-def approx_angle2(d, r):
-	return -((sqrt((50 * d * r + r**2)**2 - 16810000 * d * r) - 50 * d * r - r**2)/(410 * r))
-
-
-def calc_displacement_smm(x, a):
-	return ((41 * x * np.cos(a))/(5 * (410 + x * np.sin(a)))) - (x / 50)
+def approx_y_angle(delta_y, alpha_x):
+	return (-sqrt(ry * (np.cos(alpha_x)**2 * ry * (d * delta_y + ry * s)**2 - 2 * d**3 * s * delta_y)) + np.cos(alpha_x) * ry * (d * delta_y + ry * s))/(d * ry * s)
 
 
 def calc_board_angle(frame, original_focal_pos, prev_x_angle=0, prev_y_angle=0):
@@ -148,9 +144,9 @@ def calc_board_angle(frame, original_focal_pos, prev_x_angle=0, prev_y_angle=0):
 	focal_displacement_px[1] *= -1  # x marker is on negative side (center coordinates), while y marker is on positive side
 	focal_displacement_mm = focal_displacement_px * PIXEL_SIZE
 	try:
-		angle_x = approx_angle2(focal_displacement_mm[0], -140) if focal_x_pos[0] != 0 and focal_x_pos[1] != 0 else prev_x_angle
-		angle_y = approx_angle2(focal_displacement_mm[1], -110) if focal_y_pos[0] != 0 and focal_y_pos[1] != 0 else prev_y_angle
-		return angle_y, angle_x
+		angle_x = approx_x_angle(focal_displacement_mm[0]) if focal_x_pos[0] != 0 and focal_x_pos[1] != 0 else prev_x_angle
+		angle_y = approx_y_angle(focal_displacement_mm[1], angle_x) if focal_y_pos[0] != 0 and focal_y_pos[1] != 0 else prev_y_angle
+		return angle_x, angle_y
 	except:
 		return prev_x_angle, prev_y_angle
 
@@ -450,7 +446,7 @@ def print_timers():
 # https://www.samproell.io/posts/yarppg/yarppg-live-digital-filter/
 class SignalFilter:
 	def __init__(self):
-		self.b, self.a = scipy.signal.iirfilter(4, Wn=7, fs=1/dt, btype="low", ftype="butter")
+		self.b, self.a = scipy.signal.iirfilter(4, Wn=15, fs=1/dt, btype="low", ftype="butter")
 		self._xs = deque([0] * len(self.b), maxlen=len(self.b))
 		self._ys = deque([0] * (len(self.a) - 1), maxlen=len(self.a)-1)
 
