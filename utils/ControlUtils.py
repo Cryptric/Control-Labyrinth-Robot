@@ -141,7 +141,6 @@ def calc_board_angle(frame, original_focal_pos, prev_x_angle=0, prev_y_angle=0):
 	focal_pos = np.array([focal_x_pos[0], focal_y_pos[1]])
 	focal_displacement_px = original_focal_pos - focal_pos
 	focal_displacement_px = focal_displacement_px * (-1)  # camera mirrors image
-	focal_displacement_px[1] *= -1  # x marker is on negative side (center coordinates), while y marker is on positive side
 	focal_displacement_mm = focal_displacement_px * PIXEL_SIZE
 	try:
 		angle_x = approx_x_angle(focal_displacement_mm[0]) if focal_x_pos[0] != 0 and focal_x_pos[1] != 0 else prev_x_angle
@@ -157,18 +156,18 @@ def calc_corrected_pos(pos, angle_x, angle_y):
 	pos = pos * -1
 
 	# beta is angle angle x
-	lambda_x = -5 * pos[0] * np.sin(angle_x) * np.cos(angle_y) + 41 * np.cos(angle_x)
-	lambda_y = 5 * pos[0] * np.sin(angle_y)
-	lambda_b = -2050 * pos[0]
+	psi_x = s * np.cos(angle_x) - pos[0] * np.sin(angle_x)
+	psi_y = -s * np.sin(angle_x) * np.sin(angle_y) - pos[0] * np.cos(angle_x) * np.sin(angle_y)
+	psi_b = -pos[0] * d
 
-	phi_x = -5 * pos[1] * np.sin(angle_x) * np.cos(angle_y) + 41 * np.sin(angle_x) * np.sin(angle_y)
-	phi_y = 41 * np.cos(angle_y) + 5 * pos[1] * np.sin(angle_y)
-	phi_b = -2050 * pos[1]
+	phi_x = -pos[1] * np.sin(angle_x)
+	phi_y = s * np.cos(angle_y) - pos[1] * np.cos(angle_x) * np.sin(angle_y)
+	phi_b = -pos[1] * d
 
-	factor = 1 / (lambda_x * phi_y - lambda_y * phi_x)
+	factor = 1 / (psi_x * phi_y - psi_y * phi_x)
 
-	px = factor * (lambda_b * phi_y - lambda_y * phi_b)
-	py = factor * (-lambda_b * phi_x + lambda_x * phi_b)
+	px = factor * (psi_b * phi_y - psi_y * phi_b)
+	py = factor * (-psi_b * phi_x + psi_x * phi_b)
 
 	return np.array([px, py]) + np.array([IMG_SIZE_X / 2, IMG_SIZE_Y / 2])
 
