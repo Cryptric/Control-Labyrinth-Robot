@@ -16,16 +16,13 @@ from utils.Plotting import pr_cmap
 plt.rcParams.update({'font.size': 18})
 
 
-def onclick(event, target_pos_queue):
-	target_pos_queue.put((event.xdata, event.ydata))
-	# board_coordinates = mapping_px2mm(px2mm_mat, [event.xdata, event.ydata])
-	# print("Board coordinates: {}, {}".format(board_coordinates[0], board_coordinates[1]))
+def onclick(event):
 	print("clicked")
 
 
 
 
-def plot(data_queue, termination_event, target_pos_queue, line_plot_labels, corner_br, corner_bl, corner_tl, corner_tr):
+def plot(data_queue, termination_event, line_plot_labels, corner_br, corner_bl, corner_tl, corner_tr):
 	corner_bl = calc_corrected_pos(P_CORNER_BL, 0, 0)
 	corner_br = calc_corrected_pos(P_CORNER_BR, 0, 0)
 	corner_tr = calc_corrected_pos(P_CORNER_TR, 0, 0)
@@ -47,13 +44,13 @@ def plot(data_queue, termination_event, target_pos_queue, line_plot_labels, corn
 	img = ax[0].imshow(np.zeros((IMG_SIZE_Y, IMG_SIZE_X)), cmap="gray", vmin=0, vmax=255)
 	pos_heatmap = ax[0].imshow(np.zeros((IMG_SIZE_Y, IMG_SIZE_X)), cmap=pr_cmap, alpha=1, zorder=99)
 
-	ball_pos_plot, = ax[0].plot([], [], marker='o', label="Ball position", markersize=2, c="gray")
+	ball_pos_plot, = ax[0].plot([], [], marker='o', label="Ball position", markersize=5, c="gray")
 
-	fig.canvas.mpl_connect('button_press_event', partial(onclick, target_pos_queue=target_pos_queue))
+	fig.canvas.mpl_connect('button_press_event', partial(onclick))
 	corner_points_plt = ax[0].scatter([corner_br[0], corner_bl[0], corner_tl[0], corner_tr[0]], [corner_br[1], corner_bl[1], corner_tl[1], corner_tr[1]], label="detected board corners")
 
-	ref_trajectory_plot, = ax[0].plot([], [], marker="x", label="Reference trajectory", markersize=2, c="orange")
-	pred_trajectory_plot, = ax[0].plot([], [], marker="x", label="Predicted trajectory", markersize=2, c="green")
+	ref_trajectory_plot, = ax[0].plot([], [], marker="x", label="Reference trajectory", markersize=5, c="orange")
+	pred_trajectory_plot, = ax[0].plot([], [], marker="x", label="Predicted trajectory", markersize=5, c="green")
 
 	ax[1].set_xticks([])
 	ax[1].set_yticks([0])
@@ -62,7 +59,7 @@ def plot(data_queue, termination_event, target_pos_queue, line_plot_labels, corn
 	for label in line_plot_labels:
 		line, = ax[1].plot([1, 2], [1, 2], label=label)
 		line_plots.append(line)
-	ax[1].set_ylim((U_min - DISTURBANCE_INTEGRAL_CLIP) * 180 / np.pi * 6, (U_max + DISTURBANCE_INTEGRAL_CLIP) * 180 / np.pi * 6)
+	ax[1].set_ylim((U_min - DISTURBANCE_INTEGRAL_CLIP) * 180 / np.pi, (U_max + DISTURBANCE_INTEGRAL_CLIP) * 180 / np.pi)
 
 	ax[2].set_xticks([])
 	ax[2].set_title("Ball velocity")

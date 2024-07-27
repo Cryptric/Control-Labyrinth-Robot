@@ -42,7 +42,7 @@ def gen_circ_pattern(r):
 	return bcirc.astype(np.uint8)
 
 
-def match_circles(frame, r, threshold=0.7):
+def match_circles(frame, r, threshold=0.63):
 	frame = frame.copy()
 	pattern = gen_circ_pattern(r)
 	w, h = pattern.shape[::-1]
@@ -85,10 +85,10 @@ def detect_labyrinth(frame, ball_pos, with_graph=True):
 	start_x, start_y = 150, 15
 	if ball_pos is not None:
 		start_x, start_y = ball_pos[0], ball_pos[1]
-	bframe = apply_thresholding(frame, 60)
+	bframe = apply_thresholding(frame, 30)
 
 	if ball_pos is not None:
-		bframe = patch_holes(bframe, np.array([[start_x, start_y]]))
+		bframe = patch_holes(bframe, np.array([[start_x, start_y]]), patch_r=8)
 	circ_locs_y, circ_locs_x = match_circles(bframe, 8)
 	hole_positions = get_hole_positions(circ_locs_x, circ_locs_y)
 	patched_frame = patch_holes(bframe, hole_positions)
@@ -118,7 +118,25 @@ def detect_labyrinth(frame, ball_pos, with_graph=True):
 
 	path_weights = path_weight(lmask)
 
+	# path_weights_plt = path_weights.copy()
+	# path_weights_plt[path_weights_plt == -1] = np.nan
+	# plt.imshow(path_weights_plt, cmap='inferno')
+	# plt.colorbar()
+	# plt.gca().set_axis_off()
+	# plt.savefig("PlotData/images/path-weights.png")
+	# plt.show()
+
 	end_pos = np.unravel_index(np.argmax(lbfs, axis=None), lbfs.shape)
+
+
+	# plt_bfs_img = lbfs.copy()
+	# plt_bfs_img[plt_bfs_img == -1] = np.nan
+	# plt.imshow(plt_bfs_img, cmap="inferno")
+	# plt.plot(start_x, start_y, 'bo', markersize=10)
+	# plt.plot(end_pos[1], end_pos[0], 'r*', markersize=10)
+	# plt.gca().set_axis_off()
+	# plt.savefig("PlotData/images/bfs")
+	# plt.show()
 
 	start_node_idx = img_idx_2_node_idx(start_x, start_y, lmask)
 	end_node_idx = img_idx_2_node_idx(end_pos[1], end_pos[0], lmask)
@@ -136,14 +154,33 @@ def detect_labyrinth(frame, ball_pos, with_graph=True):
 	return frame, bframe, patched_frame, bmframe, bmcframe, with_walls, lbfs, detected_walls, circ_locs_x, circ_locs_y, hole_positions, G, path, path_weights, path_idx_x, path_idx_y
 
 
+def save_img(path, array):
+	im = PIL.Image.fromarray(array)
+	im.save(path)
+
 def main():
-	frame = load_img("TestImages/undistorted-full.png")
-	frame = cut(frame)
+	frame_o = load_img("TestImages/undistorted-full.png")
+	frame = cut(frame_o)
 
-	frame, bframe, patched_frame, bmframe, bmcframe, with_walls, lbfs, detected_walls, circ_locs_x, circ_locs_y, hole_positions, G, path, path_weights, path_idx_x, path_idx_y = detect_labyrinth(frame, None, with_graph=False)
 
-	plot_all(frame, bframe, patched_frame, bmframe, bmcframe, with_walls, lbfs, detected_walls, circ_locs_x, circ_locs_y, hole_positions, G, path, path_weights, path_idx_x, path_idx_y)
+	frame, bframe, patched_frame, bmframe, bmcframe, with_walls, lbfs, detected_walls, circ_locs_x, circ_locs_y, hole_positions, G, path, path_weights, path_idx_x, path_idx_y = detect_labyrinth(frame, None, with_graph=True)
 
+	# plt.imshow(bframe, cmap='gray')
+	# plt.scatter(hole_positions[:, 0] - 3, hole_positions[:, 1] - 3, color='r')
+	# plt.gca().axis('off')
+	# plt.savefig("PlotData/images/hole-positions.png")
+	# plt.show()
+
+	# save_img("PlotData/images/patched-holes.png", patched_frame * 255)
+
+	plt.imshow(frame_o, cmap='gray')
+	plt.plot(path_idx_x + 30, path_idx_y + 7, c='r')
+	plt.gca().axis('off')
+	plt.savefig("PlotData/images/path.png")
+	#plt.show()
+
+	#plot_all(frame, bframe, patched_frame, bmframe, bmcframe, with_walls, lbfs, detected_walls, circ_locs_x, circ_locs_y, hole_positions, G, path, path_weights, path_idx_x, path_idx_y)
+#
 	plt.show()
 
 

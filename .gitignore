@@ -773,3 +773,5 @@ recorded_y.pkl
 TestImages/
 PlotData/
 report/
+
+*.zip

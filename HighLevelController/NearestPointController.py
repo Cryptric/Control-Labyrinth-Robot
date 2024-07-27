@@ -19,8 +19,7 @@ class NearestPointController(HighLevelController):
 
 	def get_reference_trajectory(self, pos_x, pos_y):
 		if self.index + 6 * self.max_future_index + N >= self.path.shape[0]:
-			self.index = 0
-			return self.path[0:N]
+			return self.path[self.index + 4:self.index + N + 4]
 		else:
 			pos = np.array([pos_x, pos_y])
 			nearest = 0
