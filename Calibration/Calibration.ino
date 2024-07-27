@@ -6,7 +6,7 @@
 #define SERVO_X_IDLE_ANGLE 81
 #define SERVO_Y_IDLE_ANGLE 85
 
-#define SERVO_MAX_DISPLACEMENT 15
+#define SERVO_MAX_DISPLACEMENT 10
 
 #define CHECK_SERVO_ANGLE(angle) (SERVO_MIN_ANGLE <= angle && angle <= SERVO_MAX_ANGLE)
 
@@ -59,10 +59,10 @@ void initializeMPU6500() {
 }
 
 void readAccelerometer(double* accelX, double* accelY, double* accelZ, int n) {
-    int16_t accX = 0;
-    int16_t accY = 0;
-    int16_t accZ = 0;
-    for (int i = 0; i <= n; i++) {
+    int32_t accX = 0;
+    int32_t accY = 0;
+    int32_t accZ = 0;
+    for (int i = 0; i < n; i++) {
         Wire.beginTransmission(MPU6500Address);
         Wire.write(0x3B); // Starting register for accelerometer data
         Wire.endTransmission(false);
@@ -82,7 +82,7 @@ void perform_measurement(Servo& servo, int alpha, int idle_position) {
     servo.write(alpha);
     delay(SERVO_WAIT_TIME);
     double accel[3];
-    readAccelerometer(&accel[0], &accel[1], &accel[2], 10);
+    readAccelerometer(&accel[0], &accel[1], &accel[2], 1);
     double tilt = calc_angle(reference_vector, accel);
     Serial.print(alpha - idle_position);
     Serial.print(",");
@@ -90,10 +90,14 @@ void perform_measurement(Servo& servo, int alpha, int idle_position) {
 }
 
 void perform_routine(Servo& servo, int idle_position) {
+    servo.write(idle_position);
     int alpha = idle_position + SERVO_MAX_DISPLACEMENT;
-    for (; alpha > idle_position - SERVO_MAX_DISPLACEMENT; alpha--) {
+    for (; alpha >= idle_position - SERVO_MAX_DISPLACEMENT; alpha--) {
         perform_measurement(servo, alpha, idle_position);
     }
+    servo.write(idle_position);
+    delay(SERVO_WAIT_TIME);
+    alpha = idle_position - SERVO_MAX_DISPLACEMENT;
     for (; alpha <= idle_position + SERVO_MAX_DISPLACEMENT; alpha++) {
         perform_measurement(servo, alpha, idle_position);
     }
@@ -113,7 +117,7 @@ void setup() {
     servo_y.write(SERVO_Y_IDLE_ANGLE);
 
     delay(SERVO_WAIT_TIME);
-    readAccelerometer(reference_vector, reference_vector + 1, reference_vector + 2, 10);
+    readAccelerometer(reference_vector, reference_vector + 1, reference_vector + 2, 1);
 
     delay(500);
 
@@ -128,6 +132,7 @@ void setup() {
     
     Serial.println("Measure Servo Y");
     perform_routine(servo_y, SERVO_Y_IDLE_ANGLE);
+    servo_y.write(SERVO_Y_IDLE_ANGLE);
 }
 
 
