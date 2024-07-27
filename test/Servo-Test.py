@@ -1,7 +1,8 @@
 import serial
 import tkinter as tk
 
-# %%
+from Params import *
+from utils.ControlUtils import send_control_signal
 
 root = tk.Tk()
 
@@ -18,10 +19,13 @@ print("arduino connected")  # connect to arduino
 
 
 def servo():
-	x = entry1.get()
-	y = entry2.get()
-	inf = str(x) + ',' + str(y) + ';'
-	arduino.write(bytes(inf, 'utf-8'))
+	x = float(entry1.get())
+	y = float(entry2.get())
+
+	signal_x_deg = (x / K_x)
+	signal_y_deg = (y / K_y)
+
+	send_control_signal(arduino, signal_x_deg, signal_y_deg)
 
 
 button1 = tk.Button(text='Servos move', command=servo)
