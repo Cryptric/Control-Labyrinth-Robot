@@ -32,16 +32,66 @@ def create_label(x_pos, y_pos, variance=10, img_width=240, img_height=180):
 	return pd
 
 
-p_vals =   [[44,  34,  6,   0,  17,  25,  20,  32,  48],
-			[39,   8,  8,  54,  27,  30,  21,  21,  38],
-			[ 9,   3, 80, 173,  72,  36,  26,  26,  28],
-			[15,  12, 78, 255, 248,  91,  54,  24,  24],
-			[12,  13, 37,  96, 184, 247, 179,  32,  22],
-			[23,  10, 10,  24,  61, 111, 103,  43,  24],
-			[22,  13, 38, 150, 143,  39,  21,  10,  31],
-			[40,  32, 19,  71,  76,  29,  29,   9,  38],
-			[54,  46, 51,  18,   7,  23,  16,  31,  45]]
+def detect_ball_pos_mm(frame, orig_focal_pos, coordinate_transform_mat, prev_angles, legacy=False, mm2px_mat=None):
+	if legacy:
+		x_px, y_px = find_center_df(remove_distortion(frame))
+		x_mm, y_mm = apply_inverse_transform(mm2px_mat, [x_px, y_px])
+		angle_x, angle_y = calc_board_angle(frame, orig_focal_pos, prev_angles[0], prev_angles[1])
+		return x_mm, y_mm, angle_x, angle_y
+
+	ball_pos = find_center4(frame)
+	if ball_pos[0] == 0 and ball_pos[1] == 0:
+		return None, None, None, None
+
+	angle_x, angle_y = calc_board_angle(frame, orig_focal_pos, prev_angles[0], prev_angles[1])
+	prev_angles[:] = angle_x, angle_y
+	pos = calc_corrected_pos(ball_pos, angle_x, angle_y)
+
+	x_mm, y_mm = apply_transform(coordinate_transform_mat, pos)
+	return x_mm, y_mm, angle_x, angle_y
+
+
+p_vals_df = [[ 49,  33,  20,  15,  12,  10,  12,  21,  28,  42],
+ [ 36,  21,   8,   6,   8,   9,   6,  11,  16,  28],
+ [ 25,  10,   6,  15,  22,  19,  15,  11,   8,  15],
+ [ 21,   6,  12,  54, 114, 126,  64,  17,  10,   9],
+ [ 20,   5,  15,  65, 152, 189, 131,  58,  14,  11],
+ [ 17,   5,   7,  28,  58,  90,  86,  65,  16,  13],
+ [ 17,   5,   4,  10,  27,  50,  33,  19,   8,   6],
+ [ 20,   5,   1,   4,  12,  21,  12,   6,   0,   4],
+ [ 26,   9,   0,   2,   5,   6,   3,   1,   3,  14],
+ [ 28,  17,   7,   2,   1,   1,   1,   1,   7,  25]]
+pattern_df = np.array(p_vals_df, dtype=np.uint8)
+pattern_offset_df = np.array([5, 4])
+def find_center_df(frame):
+	res = cv2.matchTemplate(frame, pattern_df, cv2.TM_CCOEFF)
+	min_val, max_val, min_loc, max_loc = cv2.minMaxLoc(res)
+	if max_val > 20_000:
+		return np.array([max_loc[0], max_loc[1]]) + pattern_offset_df
+	else:
+		return np.array([0, 0])
+
+p_vals = [[ 27,  26,  23,   6,   8,   2,   8,  10,  20,  27],
+ [ 29,  23,   5,   5,   6,   5,   4,   7,   5,  22],
+ [ 22,   4,   3,   9,  21,  21,  16,   6,   9,  12],
+ [ 16,   0,   5,  51,  50,  32,  23,  17,   8,   6],
+ [ 14,   0,   5,  78, 255, 255, 152,  26,   4,   4],
+ [ 13,   0,   4,  14,  37,  65,  52, 134,   0,   6],
+ [ 14,   0,   0,   0,  34, 132,  16,   6,   2,  10],
+ [ 25,   9,   0,   0,  42, 167,  16,   0,   0,  14],
+ [ 33,  23,  10,   7,   2,   7,   6,   3,  18,  25],
+ [ 37,  30,  22,  15,  10,  10,  15,  20,  31,  53]]
 pattern = np.array(p_vals, dtype=np.uint8)
+# p_vals =   [[44,  34,  6,   0,  17,  25,  20,  32,  48],
+# 			[39,   8,  8,  54,  27,  30,  21,  21,  38],
+# 			[ 9,   3, 80, 173,  72,  36,  26,  26,  28],
+# 			[15,  12, 78, 255, 248,  91,  54,  24,  24],
+# 			[12,  13, 37,  96, 184, 247, 179,  32,  22],
+# 			[23,  10, 10,  24,  61, 111, 103,  43,  24],
+# 			[22,  13, 38, 150, 143,  39,  21,  10,  31],
+# 			[40,  32, 19,  71,  76,  29,  29,   9,  38],
+# 			[54,  46, 51,  18,   7,  23,  16,  31,  45]]
+# pattern = np.array(p_vals, dtype=np.uint8)
 #pattern = (
 #np.array([
 #	[21, 8, 10, 20, 18, 10, 4, 12],
@@ -53,11 +103,11 @@ pattern = np.array(p_vals, dtype=np.uint8)
 #	[10, 1, 0, 0, 13, 21, 7, 0],
 #	[13, 5, 3, 0, 1, 6, 0, 0]
 #], dtype=np.uint8))
-pattern_offset = np.array([5, 5])
+pattern_offset = np.array([5, 4])
 def find_center4(frame):
 	res = cv2.matchTemplate(frame, pattern, cv2.TM_CCOEFF)
 	min_val, max_val, min_loc, max_loc = cv2.minMaxLoc(res)
-	if max_val > 100_000:
+	if max_val > 70_000:
 		return np.array([max_loc[0], max_loc[1]]) + pattern_offset
 	else:
 		return np.array([0, 0])
@@ -322,7 +372,7 @@ def gen_path_custom_labyrinth1():
 def gen_path_custom_labyrinth2():
 	path = np.load("path-custom-labyrinth-2.npy")
 	path[:, 0] = path[:, 0] - 3
-	path = interpolate(path, n=750)
+	path = interpolate(path, n=1500)
 	path[:, 1] = path[:, 1] - 8
 	path[:, 0] = path[:, 0] - 3
 	return path
