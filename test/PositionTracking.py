@@ -1,17 +1,15 @@
-import time
 from multiprocessing import Pipe, Event, Process
 from multiprocessing.connection import Connection
 
 import matplotlib
 import matplotlib.pyplot as plt
-import numpy as np
 from matplotlib.animation import FuncAnimation
 from matplotlib.patches import Rectangle
 
 import Davis346Reader
-from Params import *
 from utils.ControlUtils import *
 from utils.FrameUtils import *
+
 matplotlib.use("qtAgg")
 
 
@@ -68,6 +66,8 @@ def track_process(consumer_conn: Connection, termination_event: Event):
 	corner_points_plt1 = ax[1].scatter([CORNER_BR[0], CORNER_BL[0], CORNER_TL[0], CORNER_TR[0]], [CORNER_BR[1], CORNER_BL[1], CORNER_TL[1], CORNER_TR[1]], label="detected board corners")
 
 	ball_pos_plt1 = ax[1].add_patch(plt.Circle((0, 0), 6, fill=False, lw=5, color='green', zorder=101, alpha=0.5, label="corrected ball position"))
+	ball_detected_pos_plt1 = ax[1].add_patch(plt.Circle((0, 0), 6, fill=False, lw=5, color='orange', zorder=101, alpha=0.5, label="Detected ball position"))
+
 
 	def update(_):
 		if consumer_conn.poll():
@@ -91,20 +91,23 @@ def track_process(consumer_conn: Connection, termination_event: Event):
 
 				ball_pos = find_center4(frame)
 
-				print(f"Board angle x: {angle_x/np.pi * 180:.2f}°, measured displacement: {focal_displacement_mm[0]}")
-				print(f"Board angle y: {angle_y/np.pi * 180:.2f}°, measured displacement: {focal_displacement_mm[1]}")
+				# print(f"Board angle x: {angle_x/np.pi * 180:.2f}°, measured displacement: {focal_displacement_mm[0]}")
+				# print(f"Board angle y: {angle_y/np.pi * 180:.2f}°, measured displacement: {focal_displacement_mm[1]}")
 				angle_x, angle_y = calc_board_angle(frame, orig_focal_pos)
 				corrected_ball_pos = calc_corrected_pos(ball_pos, angle_x, angle_y)
-				# print(f"Board ball pos: {apply_transform(coordinate_transform_mat, corrected_ball_pos)}, Corrected ball pos: {corrected_ball_pos}, measured pos: {ball_pos}")
+				print(f"Board ball pos: {apply_transform(coordinate_transform_mat, corrected_ball_pos)}, Corrected ball pos: {corrected_ball_pos}, measured pos: {ball_pos}")
 
 				pos_plt.set_center(ball_pos)
 				corrected_patch_plt.set_center(corrected_ball_pos)
 
 				ball_pos_plt1.set_center(apply_transform(mm2px_mat, apply_transform(coordinate_transform_mat, corrected_ball_pos)))
+
+				ball_detected_pos_plt1.set_center(find_center_df(remove_distortion(frame)))
+
 			except Exception as e:
 				print(f"Error during evaluation: {e}")
 
-		return img_plt, pos_plt, focal_plt, focal_area_x_plt,  focal_area_y_plt, orig_focal_plt, fixed_ball_plt, corrected_patch_plt, corner_points_plt, corner_points_plt1, img_plt_corrected, ball_pos_plt1
+		return img_plt, pos_plt, focal_plt, focal_area_x_plt,  focal_area_y_plt, orig_focal_plt, fixed_ball_plt, corrected_patch_plt, corner_points_plt, corner_points_plt1, img_plt_corrected, ball_pos_plt1, ball_detected_pos_plt1
 
 	def onclick(_):
 		fixed_ball_plt.set_center(corrected_patch_plt.get_center())
