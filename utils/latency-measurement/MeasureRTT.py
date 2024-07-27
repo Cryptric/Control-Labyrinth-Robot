@@ -2,22 +2,26 @@ import time
 
 import serial
 
-from utils.ControlUtils import send_control_signal
-
 
 def main():
-	arduino = serial.Serial('/dev/ttyUSB0', 115200, timeout=5)
-	time.sleep(5)
+	arduino = serial.Serial('/dev/ttyUSB1', 115200, timeout=5)
+	time.sleep(3)
 
-	# send_control_signal(arduino, 1300, 1300)
+	signal = "{},{};".format(1300, 1400)
+	arduino.write(bytes(signal, 'utf-8'))
+	arduino.read(9)
 	time.sleep(2)
+	print("start measuring procedure")
 
 	t = time.time()
-	send_control_signal(arduino, 1300, 1300)
-	m = arduino.read(10)
+	n = 1000
+	for i in range(n):
+		signal = "{},{};".format(1300, 1400)
+		arduino.write(bytes(signal, 'utf-8'))
+		m = arduino.read(9)
 	dt = time.time() - t
-	print((dt) * 1000)
-	print(m)
+	dt = dt / n
+	print(dt * 1000)
 
 
 if __name__ == '__main__':

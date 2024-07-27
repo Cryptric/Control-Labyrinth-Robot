@@ -1,79 +1,53 @@
+#include <Arduino.h>
+#include <Servo.h>
 
-#define SERVO_MIN_ANGLE 70
-#define SERVO_MAX_ANGLE 110
+#define SERVO_X_IDLE_ANGLE 80
+#define SERVO_Y_IDLE_ANGLE 87
 
-#define CHECK_SERVO_ANGLE(angle) (SERVO_MIN_ANGLE <= angle && angle <= SERVO_MAX_ANGLE)
+#define SERVO_MIN_PW 1265
+#define SERVO_MAX_PW 1678
 
+#define CHECK_SERVO_PW(angle) (SERVO_MIN_PW <= angle && angle <= SERVO_MAX_PW)
 
+#define LED_PIN 12
+
+bool led_state = true;
+
+Servo servo_x;
+Servo servo_y;
 
 void setup() {
-  Serial.begin(115200);
+    servo_x.attach(11);
+    servo_y.attach(10);
 
+    servo_x.write(SERVO_X_IDLE_ANGLE);
+    servo_y.write(SERVO_Y_IDLE_ANGLE);
 
-  pinMode(22, OUTPUT);
-  pinMode(23, OUTPUT);
-  pinMode(24, OUTPUT);
-  pinMode(25, OUTPUT);
-  pinMode(26, OUTPUT);
-  pinMode(27, OUTPUT);
-  pinMode(28, OUTPUT);
-  pinMode(29, OUTPUT);
+    pinMode(LED_PIN, OUTPUT);
+    digitalWrite(LED_PIN, led_state);
 
-  while (!Serial.available()) {}
-  delay(1000);
-  if (Serial.available()) {
-    String servoControls = Serial.readStringUntil(';');
-    int xy_separator_position = servoControls.indexOf(',');
-    int x_val = (int)servoControls.substring(0, xy_separator_position).toInt();
-    int y_val = (int)servoControls.substring(xy_separator_position + 1).toInt();
-  }
+    Serial.begin(115200);
 }
-
-void setLeds(int val) {
-  int p = val ^ (val >> 8);
-  p = p ^ (p >> 4);
-  p = p ^ (p >> 2);
-  p = p ^ (p >> 1);
-  p = p & 0x1;
-
-
-  int b1 = val & 0x7F;
-  b1 = b1 | (p << 7);
-  b1 = ~b1;
-
-  PORTA = PORTA & ~0xFF;
-  PORTA = PORTA | b1;
-}
-
-
 
 void loop() {
-
-  long start_time = millis();
-  for (int i = 0; i < 128; i += 4) {
-    setLeds(i);
-    while (millis() - start_time < i + 4) {
-      // wait
-      if (Serial.available()) {
+    if (Serial.available()) {
         String servoControls = Serial.readStringUntil(';');
         int xy_separator_position = servoControls.indexOf(',');
-        int x_val = (int)servoControls.substring(0, xy_separator_position).toInt();
-        int y_val = (int)servoControls.substring(xy_separator_position + 1).toInt();
+        int x_val = (int) servoControls.substring(0, xy_separator_position).toInt();
+        int y_val = (int) servoControls.substring(xy_separator_position + 1).toInt();
 
-        if (CHECK_SERVO_ANGLE(x_val) && CHECK_SERVO_ANGLE(y_val)) {
-          Serial.println("Set servo angles");
-        } else {
-          Serial.print("ERROR: Angle out of range: ");
-          Serial.print(x_val);
-          Serial.print(", ");
-          Serial.println(y_val);
-        }
-        while (true) {
-          ;
-        }
-      }
+        x_val = max(x_val, SERVO_MIN_PW);
+        x_val = min(x_val, SERVO_MAX_PW);
+
+        y_val = max(y_val, SERVO_MIN_PW);
+        y_val = min(y_val, SERVO_MAX_PW);
+
+        led_state = !led_state;
+        digitalWrite(LED_PIN, led_state);
+
+        Serial.print(servoControls);
+
+        servo_x.writeMicroseconds(x_val);
+        servo_y.writeMicroseconds(y_val);
     }
-  }
 }
-
-/// END ///
