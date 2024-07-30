@@ -3,6 +3,7 @@ from multiprocessing.connection import Connection
 
 import matplotlib
 import matplotlib.pyplot as plt
+import numpy as np
 from matplotlib.animation import FuncAnimation
 from matplotlib.patches import Rectangle
 
@@ -24,10 +25,10 @@ def track_process(consumer_conn: Connection, termination_event: Event):
 	orig_focal_x_pos[:] = detect_focal_x(calibration_frame)
 	orig_focal_y_pos[:] = detect_focal_y(calibration_frame)
 
-	corner_bl = calc_corrected_pos(P_CORNER_BL, 0, 0)
-	corner_br = calc_corrected_pos(P_CORNER_BR, 0, 0)
-	corner_tr = calc_corrected_pos(P_CORNER_TR, 0, 0)
-	corner_tl = calc_corrected_pos(P_CORNER_TL, 0, 0)
+	corner_bl = calc_corrected_pos(CORNER_BL, 0, 0)
+	corner_br = calc_corrected_pos(CORNER_BR, 0, 0)
+	corner_tr = calc_corrected_pos(CORNER_TR, 0, 0)
+	corner_tl = calc_corrected_pos(CORNER_TL, 0, 0)
 	coordinate_transform_mat = calc_transform_mat([corner_bl, corner_br, corner_tr, corner_tl])
 	print(coordinate_transform_mat)
 
@@ -36,6 +37,8 @@ def track_process(consumer_conn: Connection, termination_event: Event):
 	mm2px_mat = calc_transform_mat(coord_points, np.array(target_points))
 	print("mm to px transform matrix")
 	print(mm2px_mat)
+
+	prev_angles = np.array([0, 0])
 
 	fig, ax = plt.subplots(ncols=2)
 	ax[0].set_xlim(0, IMG_SIZE_X - 1)
@@ -62,7 +65,8 @@ def track_process(consumer_conn: Connection, termination_event: Event):
 	focal_area_y_patch = Rectangle((Y_FOCAL_AREA_X_MIN, Y_FOCAL_AREA_Y_MIN), Y_FOCAL_AREA_X_MAX - Y_FOCAL_AREA_X_MIN, Y_FOCAL_AREA_Y_MAX - Y_FOCAL_AREA_Y_MIN, alpha=0.5, label="Y marker search area")
 	focal_area_y_plt = ax[0].add_patch(focal_area_y_patch)
 
-	corner_points_plt = ax[0].scatter([corner_br[0], corner_bl[0], corner_tl[0], corner_tr[0]], [corner_br[1], corner_bl[1], corner_tl[1], corner_tr[1]], label="detected board corners")
+	corner_points_plt = ax[0].scatter([P_CORNER_BR[0], P_CORNER_BL[0], P_CORNER_TL[0], P_CORNER_TR[0]], [P_CORNER_BR[1], P_CORNER_BL[1], P_CORNER_TL[1], P_CORNER_TR[1]], label="detected board corners")
+	# corner_points_plt = ax[0].scatter([corner_br[0], corner_bl[0], corner_tl[0], corner_tr[0]], [corner_br[1], corner_bl[1], corner_tl[1], corner_tr[1]], label="detected board corners")
 	corner_points_plt1 = ax[1].scatter([CORNER_BR[0], CORNER_BL[0], CORNER_TL[0], CORNER_TR[0]], [CORNER_BR[1], CORNER_BL[1], CORNER_TL[1], CORNER_TR[1]], label="detected board corners")
 
 	ball_pos_plt1 = ax[1].add_patch(plt.Circle((0, 0), 6, fill=False, lw=5, color='green', zorder=101, alpha=0.5, label="corrected ball position"))
@@ -87,22 +91,25 @@ def track_process(consumer_conn: Connection, termination_event: Event):
 				focal_displacement_px[1] *= -1  # x marker is on negative side (center coordinates), while y marker is on positive side
 				focal_displacement_mm = focal_displacement_px * PIXEL_SIZE
 
-				angle_x, angle_y = calc_board_angle(frame, orig_focal_pos)
-
-				ball_pos = find_center4(frame)
+				ball_pos_px = find_center4(frame)
+				x_mm, y_mm, angle_x, angle_y = detect_ball_pos_mm(frame, orig_focal_pos, coordinate_transform_mat, prev_angles)
 
 				# print(f"Board angle x: {angle_x/np.pi * 180:.2f}°, measured displacement: {focal_displacement_mm[0]}")
 				# print(f"Board angle y: {angle_y/np.pi * 180:.2f}°, measured displacement: {focal_displacement_mm[1]}")
-				angle_x, angle_y = calc_board_angle(frame, orig_focal_pos)
-				corrected_ball_pos = calc_corrected_pos(ball_pos, angle_x, angle_y)
-				print(f"Board ball pos: {apply_transform(coordinate_transform_mat, corrected_ball_pos)}, Corrected ball pos: {corrected_ball_pos}, measured pos: {ball_pos}")
 
-				pos_plt.set_center(ball_pos)
-				corrected_patch_plt.set_center(corrected_ball_pos)
+				# print(f"Board ball pos: {apply_transform(coordinate_transform_mat, corrected_ball_pos)}, Corrected ball pos: {corrected_ball_pos}, measured pos: {ball_pos}")
 
-				ball_pos_plt1.set_center(apply_transform(mm2px_mat, apply_transform(coordinate_transform_mat, corrected_ball_pos)))
+				pos_plt.set_center(ball_pos_px)
+				corrected_patch_plt.set_center(apply_transform(mm2px_mat, [x_mm, y_mm]))
 
-				ball_detected_pos_plt1.set_center(find_center_df(remove_distortion(frame)))
+				ball_pos_plt1.set_center(apply_transform(mm2px_mat, [x_mm, y_mm]))
+
+				# pos = find_center4(frame)
+				# pos_obscura = distortion_correct_point(pos[0], pos[1])
+				# pos_corrected_df = calc_corrected_pos(pos_obscura, angle_x, angle_y)
+				# x_mm, y_mm = apply_transform(coordinate_transform_mat, pos_corrected_df)
+				# [x_px, y_px] = apply_transform(mm2px_mat, [x_mm, y_mm])
+				# ball_detected_pos_plt1.set_center([x_px, y_px])
 
 			except Exception as e:
 				print(f"Error during evaluation: {e}")

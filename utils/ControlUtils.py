@@ -43,9 +43,10 @@ def detect_ball_pos_mm(frame, orig_focal_pos, coordinate_transform_mat, prev_ang
 	if ball_pos[0] == 0 and ball_pos[1] == 0:
 		return None, None, None, None
 
+	ball_pos_obscura = distortion_correct_point(ball_pos[0], ball_pos[1])
 	angle_x, angle_y = calc_board_angle(frame, orig_focal_pos, prev_angles[0], prev_angles[1])
 	prev_angles[:] = angle_x, angle_y
-	pos = calc_corrected_pos(ball_pos, angle_x, angle_y)
+	pos = calc_corrected_pos(ball_pos_obscura, angle_x, angle_y)
 
 	x_mm, y_mm = apply_transform(coordinate_transform_mat, pos)
 	return x_mm, y_mm, angle_x, angle_y

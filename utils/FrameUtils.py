@@ -6,12 +6,18 @@ import numpy as np
 
 from Params import *
 
-with open("./camera_params.pkl", "rb") as f:
+with open("./camera_params_full.pkl", "rb") as f:
 	params = pickle.load(f)
 
 mtx = params['mtx']
 dist = params['dist']
 newcameramtx = params['newcameramtx']
+rvecs = params['rvecs']
+tvecs = params['tvecs']
+
+
+def distortion_correct_point(x, y):
+	return cv2.undistortPoints(np.array([[x, y]], dtype=np.float32), mtx, dist, None, newcameramtx)[0, 0]
 
 
 def calc_distance(x, y):
