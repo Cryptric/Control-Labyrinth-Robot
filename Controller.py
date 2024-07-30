@@ -6,7 +6,7 @@ import serial
 import Davis346Reader
 import Plotter
 from HighLevelController.NearestPointController import NearestPointController
-from controllers.Controllers import LinearMPC
+from controllers.Controllers import *
 from utils.ControlUtils import *
 from utils.FrameUtils import *
 from utils.store import store
@@ -16,7 +16,7 @@ def main():
 	start_time = datetime.now()
 
 	# Connect arduino
-	arduino = serial.Serial('/dev/ttyUSB2', 115200, timeout=5)
+	arduino = serial.Serial('/dev/ttyUSB1', 115200, timeout=5)
 	time.sleep(1)
 
 	# Initialize camera process
@@ -51,7 +51,8 @@ def main():
 	path_controller = NearestPointController(gen_path_custom_labyrinth2())
 	# path_controller = PathFindingNearestPointController(remove_distortion(frame))
 
-	controller = LinearMPC(prev_pos, path_controller)
+	#controller = LinearMPC(prev_pos, path_controller)
+	controller = SimulationController(prev_pos)
 
 	# clear pipe
 	while consumer_conn.poll():
@@ -59,9 +60,11 @@ def main():
 
 	runtime_start = time.time()
 
-	recorded_data_x = {"state": [], "delay_compensated_state": [], "target_trajectory": [], "predicted_state": [], "mpc_signal": [], "signal_multiplier": [], "disturbance_compensation": [], "board_angle": []}
-	recorded_data_y = {"state": [], "delay_compensated_state": [], "target_trajectory": [], "predicted_state": [], "mpc_signal": [], "signal_multiplier": [], "disturbance_compensation": [], "board_angle": []}
+	recorded_data_x = {"state": [], "delay_compensated_state": [], "target_trajectory": [], "predicted_state": [], "mpc_signal": [], "signal_multiplier": [], "disturbance_compensation": [], "delta": [], "board_angle": []}
+	recorded_data_y = {"state": [], "delay_compensated_state": [], "target_trajectory": [], "predicted_state": [], "mpc_signal": [], "signal_multiplier": [], "disturbance_compensation": [], "delta": [], "board_angle": []}
 	frames = []
+
+	controller.set_recorders(recorded_data_x, recorded_data_y)
 
 	def update():
 		if consumer_conn.poll():
@@ -83,7 +86,7 @@ def main():
 					send_control_signal(arduino, signal_x_deg, signal_y_deg)
 
 				plot_queue.put_nowait((frame, None, [x_mm, y_mm], target_trajectory, [pred_xk_x, pred_xk_y], [signal_x_deg, signal_y_deg], [speed_x, speed_y], t))
-
+				controller.visualization_update()
 				# recording
 				recorded_data_x["state"].append([x_mm, speed_x])
 				recorded_data_x["delay_compensated_state"].append(pred_xk_x[STEPS_DEAD_TIME])
@@ -114,6 +117,8 @@ def main():
 	# control loop
 	while not termination_event.is_set():
 		update()
+
+	controller.destroy()
 
 	# make sure pipe isn't full, such that producer can exit
 	while p.is_alive():

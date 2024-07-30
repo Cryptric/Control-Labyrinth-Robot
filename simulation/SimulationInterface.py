@@ -4,6 +4,8 @@ import time
 import numpy as np
 from numpy.ctypeslib import ndpointer
 
+from Params import STEPS_DEAD_TIME
+
 
 class Simulation:
 	def __init__(self, graphics):
@@ -24,6 +26,7 @@ class Simulation:
 										 ndpointer(ctypes.c_float, flags="C_CONTIGUOUS"),
 										 ndpointer(ctypes.c_float, flags="C_CONTIGUOUS"),
 										 ndpointer(ctypes.c_float, flags="C_CONTIGUOUS"),
+										 ctypes.c_size_t,
 										 ctypes.POINTER(ctypes.c_float)]
 		self.sample_function.restype = None
 
@@ -41,7 +44,7 @@ class Simulation:
 
 	def sample_signal(self, pos, velocity, angle, prev_signals):
 		signal = np.array([0, 0], dtype=np.float32)
-		self.sample_function(pos.astype(np.float32), velocity.astype(np.float32), angle.astype(np.float32), prev_signals.astype(np.float32), signal.ctypes.data_as(ctypes.POINTER(ctypes.c_float)))
+		self.sample_function(pos.astype(np.float32), velocity.astype(np.float32), angle.astype(np.float32), prev_signals.astype(np.float32), STEPS_DEAD_TIME, signal.ctypes.data_as(ctypes.POINTER(ctypes.c_float)))
 		return signal
 
 	def draw(self):
@@ -54,8 +57,8 @@ class Simulation:
 
 
 if __name__ == '__main__':
-	s = Simulation()
+	s = Simulation(True)
 	t = time.time()
-	res = s.sample_signal(np.array([0, 0]), np.array([0, 0]), np.array([0, 0]))
+	res = s.sample_signal(np.array([0, 0]), np.array([0, 0]), np.array([0, 0]), np.array([1, 2, 3, 4]))
 	dt = time.time() - t
 	print(f"signal: {res}, in {dt * 1000}ms")

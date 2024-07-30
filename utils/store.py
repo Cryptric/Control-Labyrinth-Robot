@@ -17,7 +17,7 @@ def store(data_x, data_y, start_date, runtime, follow_mse, frames):
 	file_name = f"data_{str(start_date).replace(':', '-').replace(' ', '_').split('.0')[0]}.pkl"
 
 	with open("./store/index.csv", "a") as index:
-		index.write(f"{file_name},{start_date},{runtime},{comment},{n},{follow_mse},{mu_x},{std_x},{mu_y},{std_y}\n")
+		index.write(f"{file_name[5:]},{start_date},{runtime},{comment},{n},{follow_mse},{mu_x},{std_x},{mu_y},{std_y}\n")
 
 	with open(f"./store/{file_name}", "wb") as file:
 		pickle.dump((data_x, data_y), file)

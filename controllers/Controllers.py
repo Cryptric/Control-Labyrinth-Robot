@@ -1,3 +1,6 @@
+import matplotlib.pyplot as plt
+import numpy as np
+
 from DisturbanceCompensator import DisturbanceCompensator
 from HighLevelController.HighLevelController import HighLevelController
 from MPC import MPC
@@ -9,7 +12,12 @@ from simulation.SimulationInterface import Simulation
 class Controller:
 
 	def __init__(self):
-		pass
+		self.recorded_data_x = None
+		self.recorded_data_y = None
+
+	def set_recorders(self, data_x, data_y):
+		self.recorded_data_x = data_x
+		self.recorded_data_y = data_y
 
 	def __call__(self, pos, velocity):
 		pass
@@ -19,8 +27,6 @@ class Controller:
 
 	def visualization_update(self):
 		pass
-
-
 
 
 class LinearMPC(Controller):
@@ -66,7 +72,7 @@ class LinearMPC(Controller):
 class SimulationController(Controller):
 	def __init__(self, pos):
 		super().__init__()
-		self.signal_queue = [np.array([0, 0])] * STEPS_DEAD_TIME
+		self.signal_queue = [np.array([0, 0], dtype=np.float32)] * STEPS_DEAD_TIME
 
 		self.simulation = Simulation(True)
 		dx, dy = gen_neg_gradient_field()
@@ -75,20 +81,33 @@ class SimulationController(Controller):
 		self.disturbance_compensator_x = DisturbanceCompensator(np.array([pos[0], 0]), K_x)
 		self.disturbance_compensator_y = DisturbanceCompensator(np.array([pos[1], 0]), K_y)
 
+		self.debug_data = []
+
 	def __call__(self, pos, velocity):
 		prev_signals = np.concatenate(self.signal_queue)
-		sim_sig = s.sample_signal(np.array(pos), np.array(velocity), np.array([0, 0]), prev_signals)
+		print(prev_signals)
+		self.debug_data.append(prev_signals)
+		sim_sig = self.simulation.sample_signal(np.array(pos), np.array(velocity), np.array([0, 0]), prev_signals)
 
 		self.signal_queue.pop(0)
-		self.signal_queue.append(sim_sig)
+		self.signal_queue.append(sim_sig.copy())
 
-		disturbance_x = self.disturbance_compensator_x.update([pos[0], velocity[0]], sim_sig)
-		disturbance_y = self.disturbance_compensator_y.update([pos[1], velocity[1]], sim_sig)
-		return sim_sig, (1, 1), (disturbance_x, disturbance_y), ([pos[0], velocity[0]] * (STEPS_DEAD_TIME + 1), [pos[1], velocity[1]] * (STEPS_DEAD_TIME + 1)), []
+		# convert to servo angles
+		print(sim_sig)
+		sim_sig[0] = sim_sig[0] / K_x
+		sim_sig[1] = sim_sig[1] / K_y
+
+		disturbance_x, d_x = self.disturbance_compensator_x.update([pos[0], velocity[0]], sim_sig[0])
+		disturbance_y, d_y = self.disturbance_compensator_y.update([pos[1], velocity[1]], sim_sig[1])
+
+		self.recorded_data_x["delta"].append(d_x)
+		self.recorded_data_y["delta"].append(d_y)
+
+		return ([sim_sig[0]] * (STEPS_DEAD_TIME + 1), [sim_sig[1]] * (STEPS_DEAD_TIME + 1)), (1, 1), (disturbance_x, disturbance_y), ([pos[0], velocity[0]] * (STEPS_DEAD_TIME + 1), [pos[1], velocity[1]] * (STEPS_DEAD_TIME + 1)), np.array([pos])
 
 	def visualization_update(self):
-		s.draw()
+		self.simulation.draw()
 
 	def destroy(self):
-		s.close()
+		self.simulation.close()
 
