@@ -16,4 +16,4 @@ class PathFindingNearestPointController(NearestPointController):
 		coordinate_transform_mat, mm2px_mat = get_transform_matrices()
 		path_mm = sequence_apply_inverse_transform(mm2px_mat, path_idx_x, path_idx_y).T
 
-		super().__init__(path_mm)
+		super().__init__(interpolate(path_mm, n=1500))
