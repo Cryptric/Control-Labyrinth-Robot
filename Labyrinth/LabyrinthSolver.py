@@ -127,7 +127,7 @@ def gen_graph(mask):
 	# https://stackoverflow.com/questions/67259669/make-graph-from-mask-grid-in-python
 	ys, xs = np.where(mask == 0)
 	distances = np.sqrt((ys - ys.reshape(-1, 1)) ** 2 + (xs - xs.reshape(-1, 1)) ** 2)
-	adjacency_matrix = (distances <= 1).astype(np.int64)
+	adjacency_matrix = (distances <= 1.5).astype(np.int64)
 	np.fill_diagonal(adjacency_matrix, 0)
 
 	G = nx.from_numpy_array(adjacency_matrix)
