@@ -1,11 +1,14 @@
 from datetime import datetime
 from multiprocessing import Pipe, Process, Event, Queue
 
+import numpy as np
 import serial
 
 import Davis346Reader
 import Plotter
 from HighLevelController.NearestPointController import NearestPointController
+from HighLevelController.PathFindingNearestPointController import PathFindingNearestPointController
+from analysis.FollowingScoreCalculator import calculate_mean_variance
 from controllers.Controllers import *
 from utils.ControlUtils import *
 from utils.FrameUtils import *
@@ -48,7 +51,8 @@ def main():
 	ball_pos = find_center4(preprocessing_frame)
 	prev_pos = np.array(apply_transform(coordinate_transform_mat, calc_corrected_pos(ball_pos, 0, 0)))
 
-	path_controller = NearestPointController(gen_path_custom_labyrinth2())
+	path_controller = NearestPointController(gen_path_medium_labyrinth())
+	# path_controller = PathFindingNearestPointController(preprocessing_frame)
 	# path_controller = PathFindingNearestPointController(remove_distortion(frame))
 
 	#controller = LinearMPC(prev_pos, path_controller)
@@ -146,7 +150,8 @@ def main():
 	print_timers()
 	follow_mse = calc_following_mse(recorded_data_x) + calc_following_mse(recorded_data_y)
 	store(recorded_data_x, recorded_data_y, start_time, time.time() - runtime_start, follow_mse, frames)
-	print(f"Following MSE: {follow_mse}")
+	mean, variance = calculate_mean_variance(recorded_data_x, recorded_data_y)
+	print(f"Mean: {mean}, Variance: {variance}")
 	exit(0)
 
 

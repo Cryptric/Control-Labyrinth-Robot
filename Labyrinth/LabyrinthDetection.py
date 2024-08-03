@@ -76,7 +76,7 @@ def patch_holes(frame, locations, patch_r=8):
 	n = locations.shape[0]
 	w, h = 2 * patch_r, 2 * patch_r
 	for i in range(n):
-		x, y = int(np.round(locations[i, 0] - patch_r)), int(np.round(locations[i, 1] - patch_r))
+		x, y = int(np.round(locations[i, 0] - patch_r)), max(int(np.round(locations[i, 1] - patch_r)), 0)
 		frame[y: y + h, x: x + w] = 1
 	return frame
 

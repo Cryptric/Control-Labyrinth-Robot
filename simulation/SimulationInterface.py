@@ -14,11 +14,17 @@ class Simulation:
 			self.simulation = ctypes.CDLL("/home/gawain/Documents/PhysicSimulation/cmake-build-debug/libPhysicSimulationLib.so")
 		else:
 			self.simulation = ctypes.CDLL("/home/gawain/Documents/PhysicSimulation/cmake-build-debug/libPhysicSimulationNoGraphicsLib.so")
+
+		self.simulation_horizon = 30
+
 		self.simulation.init()
 
 		self.set_vector_field_function = self.simulation.setVectorField
 		self.set_vector_field_function.argtypes = [ndpointer(ctypes.c_float, flags="C_CONTIGUOUS"), ndpointer(ctypes.c_float, flags="C_CONTIGUOUS")]
 		self.set_vector_field_function.restype = None
+
+		self.set_path_function = self.simulation.setPath
+		self.set_path_function.argtypes = [ndpointer(ctypes.c_float, flags="C_CONTIGUOUS"), ctypes.c_size_t]
 
 		self.sample_function = self.simulation.sampleControlSignal
 
@@ -27,6 +33,7 @@ class Simulation:
 										 ndpointer(ctypes.c_float, flags="C_CONTIGUOUS"),
 										 ndpointer(ctypes.c_float, flags="C_CONTIGUOUS"),
 										 ctypes.c_size_t,
+										 ctypes.POINTER(ctypes.c_float),
 										 ctypes.POINTER(ctypes.c_float)]
 		self.sample_function.restype = None
 
@@ -44,8 +51,9 @@ class Simulation:
 
 	def sample_signal(self, pos, velocity, angle, prev_signals):
 		signal = np.array([0, 0], dtype=np.float32)
-		self.sample_function(pos.astype(np.float32), velocity.astype(np.float32), angle.astype(np.float32), prev_signals.astype(np.float32), STEPS_DEAD_TIME, signal.ctypes.data_as(ctypes.POINTER(ctypes.c_float)))
-		return signal
+		predicted_trajectory = np.zeros(2 * self.simulation_horizon, dtype=np.float32)
+		self.sample_function(pos.astype(np.float32), velocity.astype(np.float32), angle.astype(np.float32), prev_signals.astype(np.float32), STEPS_DEAD_TIME, signal.ctypes.data_as(ctypes.POINTER(ctypes.c_float)), predicted_trajectory.ctypes.data_as(ctypes.POINTER(ctypes.c_float)))
+		return signal, predicted_trajectory.reshape((self.simulation_horizon, 2))
 
 	def draw(self):
 		if self.graphics:

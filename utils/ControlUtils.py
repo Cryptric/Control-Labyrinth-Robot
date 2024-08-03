@@ -104,14 +104,29 @@ pattern = np.array(p_vals, dtype=np.uint8)
 #	[10, 1, 0, 0, 13, 21, 7, 0],
 #	[13, 5, 3, 0, 1, 6, 0, 0]
 #], dtype=np.uint8))
-pattern_offset = np.array([5, 4])
-def find_center4(frame):
+pattern_offset = np.array([5, 5])
+pattern_offset_2 = np.array([-4, -5])
+def find_center4(frame, subpixel=True):
 	res = cv2.matchTemplate(frame, pattern, cv2.TM_CCOEFF)
 	min_val, max_val, min_loc, max_loc = cv2.minMaxLoc(res)
 	if max_val > 70_000:
-		return np.array([max_loc[0], max_loc[1]]) + pattern_offset
+		max_loc += pattern_offset
+		x, y = max_loc[0], max_loc[1]
+		if not subpixel:
+			return np.array([x, y])
+		neighborhood = frame[y - subpixel_neighborhood_size_2:y + subpixel_neighborhood_size_2, x - subpixel_neighborhood_size_2:x + subpixel_neighborhood_size_2]
+		subpixel_pos = find_center_subpixel(neighborhood)
+		return np.array([x, y]) + subpixel_pos/4 + pattern_offset_2
 	else:
 		return np.array([0, 0])
+
+
+pattern_subpixel = cv2.resize(pattern, (0, 0), fx=4, fy=4, interpolation=cv2.INTER_CUBIC)
+def find_center_subpixel(frame):
+	frame_scaled = cv2.resize(frame, (0, 0), fx=4, fy=4, interpolation=cv2.INTER_CUBIC)
+	res = cv2.matchTemplate(frame_scaled, pattern_subpixel, cv2.TM_CCOEFF)
+	min_val, max_val, min_loc, max_loc = cv2.minMaxLoc(res)
+	return np.array([max_loc[0], max_loc[1]])
 
 
 def find_center2(pdf, template_size=13):
@@ -167,10 +182,10 @@ def find_center(output, is_weighted=True):
 
 
 def get_transform_matrices():
-	corner_bl = calc_corrected_pos(P_CORNER_BL, 0, 0)
-	corner_br = calc_corrected_pos(P_CORNER_BR, 0, 0)
-	corner_tr = calc_corrected_pos(P_CORNER_TR, 0, 0)
-	corner_tl = calc_corrected_pos(P_CORNER_TL, 0, 0)
+	corner_bl = calc_corrected_pos(CORNER_BL, 0, 0)
+	corner_br = calc_corrected_pos(CORNER_BR, 0, 0)
+	corner_tr = calc_corrected_pos(CORNER_TR, 0, 0)
+	corner_tl = calc_corrected_pos(CORNER_TL, 0, 0)
 	coordinate_transform_mat = calc_transform_mat([corner_bl, corner_br, corner_tr, corner_tl])
 
 	mm2px_mat = calc_mm2px_mat(coordinate_transform_mat, corner_bl, corner_br, corner_tr, corner_tl)
@@ -376,6 +391,19 @@ def gen_path_custom_labyrinth2():
 	path = interpolate(path, n=1500)
 	path[:, 1] = path[:, 1] - 8
 	path[:, 0] = path[:, 0] - 3
+	return path
+
+
+def gen_path_custom_labyrinth_auto():
+	with open("path_custom_auto.pkl", "rb") as f:
+		path = pickle.load(f)
+	path = interpolate(path, n=1500)
+	return path
+
+def gen_path_simple_labyrinth_auto():
+	with open("path_simple_auto.pkl", "rb") as f:
+		path = pickle.load(f)
+	path = interpolate(path, n=1500)
 	return path
 
 

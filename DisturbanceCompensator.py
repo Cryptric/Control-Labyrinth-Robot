@@ -15,14 +15,13 @@ class DisturbanceCompensator:
 
 		d = self.previous_state[0] + dt * self.previous_state[1] + 1 / 2 * dt ** 2 * 5 / 7 * g * self.K * self.prev_signals.pop(0) - measured_state[0]
 
-		if abs(d) <= 10:
+		if abs(d) <= 4:
 			delta = - (14 * d) / (5 * dt**2 * g)
 			I = self.disturbance_integral + delta * dt * DISTURBANCE_APPROXIMATION_INTEGRAL
 			self.disturbance_integral = np.clip(I, -DISTURBANCE_INTEGRAL_CLIP, DISTURBANCE_INTEGRAL_CLIP)
 		self.previous_state = measured_state
 		self.prev_signals.append(signal)
 		return self.disturbance_integral, d
-
 
 
 if __name__ == '__main__':
