@@ -1,7 +1,7 @@
 #include <Arduino.h>
 #include <Servo.h>
 
-#define SERVO_X_IDLE_ANGLE 80
+#define SERVO_X_IDLE_ANGLE 83
 #define SERVO_Y_IDLE_ANGLE 87
 
 #define SERVO_MIN_PW 1265

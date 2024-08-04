@@ -99,7 +99,7 @@ def gen_neg_gradient_field():
 	smooth_pre = score_map.astype(np.float32)
 	smooth_pre[smooth_pre == 0] = np.max(smooth_pre)
 	smooth_cost = gaussian_filter(smooth_pre, sigma=3)
-	smooth_cost[score_map == 0] = np.nan  # TODO?
+	smooth_cost[score_map == 0] = np.nan
 
 	dy, dx = np.gradient(smooth_cost, edge_order=2)
 
@@ -116,7 +116,7 @@ def gen_neg_gradient_field():
 def main():
 	score_map = labyrinth_score()
 
-	# np.savetxt("/home/gawain/Documents/PhysicSimulation/score4.csv", score_map, delimiter=",")
+	# np.savetxt("score3.csv", score_map, delimiter=",")
 
 	Y, X = np.mgrid[0:score_map.shape[0], 0:score_map.shape[1]]
 
@@ -130,13 +130,13 @@ def main():
 	ax.set_zlabel("Cost value")
 	ax.set_title("Cost map")
 
-	# fig2, ax2 = plt.subplots()
-	# cost_plt = ax2.imshow(score_map_nan, cmap="magma", origin="lower")
-	# ax2.set_xlabel("Position X [mm]")
-	# ax2.set_ylabel("Position Y [mm]")
-	# ax2.set_title("Cost map")
-	# fig2.colorbar(cost_plt, label="Cost value", ax=ax2)
-#
+	fig2, ax2 = plt.subplots()
+	cost_plt = ax2.imshow(score_map_nan, cmap="magma", origin="lower")
+	ax2.set_xlabel("Position X [mm]")
+	ax2.set_ylabel("Position Y [mm]")
+	ax2.set_title("Cost map")
+	fig2.colorbar(cost_plt, label="Cost value", ax=ax2)
+
 	fig3, ax3 = plt.subplots()
 	ax3.set_title("Smoothed")
 	smooth_pre = score_map.astype(np.float32)
@@ -160,7 +160,6 @@ def main():
 	fig_g, ax_g = plt.subplots()
 	ax_g.quiver(X, Y, dx, dy, scale=1, scale_units='xy')
 
-	# plt.savefig("PlotData/images/3dcosts.pdf")
 	plt.show()
 
 

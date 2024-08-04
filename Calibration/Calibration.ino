@@ -3,8 +3,8 @@
 #include <Servo.h>
 
 
-#define SERVO_X_IDLE_ANGLE 81
-#define SERVO_Y_IDLE_ANGLE 85
+#define SERVO_X_IDLE_ANGLE 83
+#define SERVO_Y_IDLE_ANGLE 87
 
 #define SERVO_MAX_DISPLACEMENT 10
 

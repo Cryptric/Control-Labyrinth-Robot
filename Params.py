@@ -15,7 +15,7 @@ PROCESSING_X = X_EDGE // 2
 PROCESSING_Y = Y_EDGE // 2
 
 
-X_CONTROL_SIGNAL_HORIZONTAL = 80
+X_CONTROL_SIGNAL_HORIZONTAL = 83
 Y_CONTROL_SIGNAL_HORIZONTAL = 87
 
 BOARD_LENGTH_X = 275
@@ -26,12 +26,13 @@ CORNER_MASK_MIN_Y, CORNER_MASK_MAX_Y = 5, 250
 CORNER_ANGLE_MAX_DEVIATION = 0.1
 LENGTH_MAX_DEVIATION = 0.1
 
+# Platform corners image coordinates from distortion free image
 CORNER_BL = (42, 238)
 CORNER_BR = (306, 236)
 CORNER_TR = (305, 18)
 CORNER_TL = (41, 17)
 
-# Perspective corners
+# Perspective corners image coordinates from unaltered camera image
 P_CORNER_BL = (35, 242)
 P_CORNER_BR = (312, 243)
 P_CORNER_TR = (311, 9)
@@ -65,18 +66,17 @@ dt = 1 / 50
 
 STEPS_DEAD_TIME = 2
 
+# control horizon in number of iterations, controller runs at 50 Hz by default
 N = 50
+
 Q = 1
 R = 5 * 1000
 
-
-DISTURBANCE_APPROXIMATION_PROPORTIONAL = 0.0
+# integral gain for disturbance compensator
 DISTURBANCE_APPROXIMATION_INTEGRAL = 1
-DISTURBANCE_APPROXIMATION_DIFFERENTIAL = 0.0
 
 DISTURBANCE_INTEGRAL_CLIP = 0.1
 
-DIVERGENCE_PREVENTION_INTEGRAL = 0.05
 
 MAX_ITER = 5
 
