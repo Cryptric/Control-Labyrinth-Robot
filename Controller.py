@@ -39,6 +39,26 @@ def main():
 	for i in range(10):
 		preprocessing_frame, _ = consumer_conn.recv()
 
+	fig, ax = plt.subplots()
+	fig.tight_layout()
+	ax.set_title("Select the center of the ball")
+	ax.axis('off')
+	ax.imshow(preprocessing_frame, cmap='gray', vmin=0, vmax=255)
+
+	new_pattern = np.zeros((10, 10), dtype=np.uint8)
+	new_pattern_subpixel = np.zeros((40, 40), dtype=np.uint8)
+
+	def on_click(event):
+		x = round(event.xdata)
+		y = round(event.ydata)
+		ball_pattern = preprocessing_frame[y-5:y+5, x-5:x+5]
+		new_pattern[:] = ball_pattern
+		new_pattern_subpixel[:] = cv2.resize(pattern, (0, 0), fx=4, fy=4, interpolation=cv2.INTER_CUBIC)
+		plt.close()
+	fig.canvas.mpl_connect('button_press_event', on_click)
+	plt.show()
+	print("ball selection done")
+
 	coordinate_transform_mat, mm2px_mat = get_transform_matrices()
 
 	orig_focal_x_pos = np.array([0, 0], dtype=np.float64)
@@ -48,13 +68,12 @@ def main():
 	orig_focal_pos = np.array([orig_focal_x_pos[0], orig_focal_y_pos[1]])
 	prev_angles = np.array([0, 0], dtype=np.float64)
 
-	ball_pos = find_center4(preprocessing_frame)
+	ball_pos = find_center4(preprocessing_frame, p=new_pattern, sp=new_pattern_subpixel)
 	prev_pos = np.array(apply_transform(coordinate_transform_mat, calc_corrected_pos(ball_pos, 0, 0)))
 
 	# path_controller = NearestPointController(gen_path_medium_labyrinth())
 	# path_controller = NearestPointController(gen_path_simple_labyrinth_auto())
 	path_controller = NearestPointController(gen_path_custom_labyrinth_auto())
-
 
 	controller = LinearMPC(prev_pos, path_controller)
 	#controller = SimulationController(prev_pos)
@@ -76,7 +95,7 @@ def main():
 			try:
 				with Timer("control loop"):
 					frame, t = consumer_conn.recv()
-					x_mm, y_mm, angle_x, angle_y = detect_ball_pos_mm(frame, orig_focal_pos, coordinate_transform_mat, prev_angles, legacy=False, mm2px_mat=mm2px_mat)
+					x_mm, y_mm, angle_x, angle_y = detect_ball_pos_mm(frame, orig_focal_pos, coordinate_transform_mat, prev_angles, legacy=False, mm2px_mat=mm2px_mat, p=new_pattern, sp=new_pattern_subpixel)
 					if x_mm is None:
 						return
 

@@ -26,14 +26,16 @@ def create_label(x_pos, y_pos, variance=10, img_width=240, img_height=180):
 	return pd
 
 
-def detect_ball_pos_mm(frame, orig_focal_pos, coordinate_transform_mat, prev_angles, legacy=False, mm2px_mat=None):
+def detect_ball_pos_mm(frame, orig_focal_pos, coordinate_transform_mat, prev_angles, legacy=False, mm2px_mat=None, p=None, sp=None):
 	if legacy:
 		x_px, y_px = find_center_df(remove_distortion(frame))
 		x_mm, y_mm = apply_inverse_transform(mm2px_mat, [x_px, y_px])
 		angle_x, angle_y = calc_board_angle(frame, orig_focal_pos, prev_angles[0], prev_angles[1])
 		return x_mm, y_mm, angle_x, angle_y
-
-	ball_pos = find_center4(frame)
+	if p is None or sp is None:
+		ball_pos = find_center4(frame)
+	else:
+		ball_pos = find_center4(frame, p=p, sp=sp)
 	if ball_pos[0] == 0 and ball_pos[1] == 0:
 		return None, None, None, None
 
@@ -61,7 +63,7 @@ pattern_offset_df = np.array([5, 4])
 def find_center_df(frame):
 	res = cv2.matchTemplate(frame, pattern_df, cv2.TM_CCOEFF)
 	min_val, max_val, min_loc, max_loc = cv2.minMaxLoc(res)
-	if max_val > 20_000:
+	if max_val > 5_000:
 		return np.array([max_loc[0], max_loc[1]]) + pattern_offset_df
 	else:
 		return np.array([0, 0])
@@ -78,26 +80,26 @@ p_vals = [[ 27,  26,  23,   6,   8,   2,   8,  10,  20,  27],
  [ 37,  30,  22,  15,  10,  10,  15,  20,  31,  53]]
 pattern = np.array(p_vals, dtype=np.uint8)
 pattern_offset = np.array([5, 5])
-pattern_offset_2 = np.array([-4, -5])
-def find_center4(frame, subpixel=True):
-	res = cv2.matchTemplate(frame, pattern, cv2.TM_CCOEFF)
+pattern_offset_2 = np.array([-5, -6])
+pattern_subpixel = cv2.resize(pattern, (0, 0), fx=4, fy=4, interpolation=cv2.INTER_CUBIC)
+def find_center4(frame, subpixel=True, p=pattern, sp=pattern_subpixel):
+	res = cv2.matchTemplate(frame, p, cv2.TM_CCOEFF)
 	min_val, max_val, min_loc, max_loc = cv2.minMaxLoc(res)
-	if max_val > 70_000:
+	if max_val > 5_000:
 		max_loc += pattern_offset
 		x, y = max_loc[0], max_loc[1]
 		if not subpixel:
 			return np.array([x, y])
 		neighborhood = frame[y - subpixel_neighborhood_size_2:y + subpixel_neighborhood_size_2, x - subpixel_neighborhood_size_2:x + subpixel_neighborhood_size_2]
-		subpixel_pos = find_center_subpixel(neighborhood)
+		subpixel_pos = find_center_subpixel(neighborhood, sp=sp)
 		return np.array([x, y]) + subpixel_pos/4 + pattern_offset_2
 	else:
 		return np.array([0, 0])
 
 
-pattern_subpixel = cv2.resize(pattern, (0, 0), fx=4, fy=4, interpolation=cv2.INTER_CUBIC)
-def find_center_subpixel(frame):
+def find_center_subpixel(frame, sp=pattern_subpixel):
 	frame_scaled = cv2.resize(frame, (0, 0), fx=4, fy=4, interpolation=cv2.INTER_CUBIC)
-	res = cv2.matchTemplate(frame_scaled, pattern_subpixel, cv2.TM_CCOEFF)
+	res = cv2.matchTemplate(frame_scaled, sp, cv2.TM_CCOEFF)
 	min_val, max_val, min_loc, max_loc = cv2.minMaxLoc(res)
 	return np.array([max_loc[0], max_loc[1]])
 

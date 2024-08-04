@@ -5,9 +5,9 @@ from utils.ControlUtils import *
 
 
 class PathFindingNearestPointController(NearestPointController):
-	def __init__(self, frame):
+	def __init__(self, frame, ball_pattern):
 		frame_cut = frame[CORNER_TL[1]:CORNER_BR[1], CORNER_TL[0]:CORNER_BR[0]]
-		ball_pos = find_center4(frame_cut, subpixel=False)
+		ball_pos = find_center4(frame_cut, subpixel=False, p=ball_pattern)
 		frame_cut, bframe, patched_frame, bmframe, bmcframe, with_walls, lbfs, detected_walls, circ_locs_x, circ_locs_y, hole_positions, G, path, path_weights, path_idx_x, path_idx_y = detect_labyrinth(frame_cut, ball_pos)
 
 		path_idx_x += CORNER_TL[0]

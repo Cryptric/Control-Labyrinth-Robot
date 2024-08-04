@@ -3,7 +3,7 @@
 
 ## Project setup
 To set up this project follow these steps:
-1. Setup and activate `python3.10` virtual environment
+1. Setup and activate `python3.10` virtual environment (virtual environment is optional)
 2. Add package repository
     ```bash
     sudo add-apt-repository ppa:inivation-ppa/inivation
@@ -24,6 +24,8 @@ To set up this project follow these steps:
 
 
 ## Running the project
+First active the virtual python environment if created during the project setup.
+
 To run the project flash the Arduino code `ServoControl/ServoControl.ino` to a Arduino Nano and wire the servos corresponding to this diagram:
 
 ![](ArduinoServoConnection.png)
@@ -40,15 +42,23 @@ To run the controller execute the following command:
 ```bash
 python Controller.py
 ```
-By default, the linear model predictive controller that is not aware of the walls in the labyrinth is executed.
-An automatically generated path through the custom build labyrinth top is loaded from a file.
-The labyrinth path can be changed by selecting a different path controllers in `Controller.py` on lines 54-56.
-Different labyrinths work best with different control horizon and integral gain for the disturbance compensator, these can be changed in `Params.py` on line 70 and 78.
+In the window that opens, click in the center of the ball, this will define the template used to find the ball during control.
+
+![](BallSelectionWindow.png)
+
+Then the controller will start (if nothing happens, it is an indication that the ball could not be detected).
 
 To achieve good results, it is helpful if the labyrinth platform is levelled.
 The easiest way to level the labyrinth platform is to underlay on one side of the labyrinth until it is level.
 Alternatively servo angles at which the platform should be level can be adjusted in `Params.py` on line 8-9.
 Script `test/Servo-Test.py` can be used to find offset angles.
+
+
+By default, the linear model predictive controller that is not aware of the walls in the labyrinth is executed.
+An automatically generated path through the custom build labyrinth top is loaded from a file.
+The labyrinth path can be changed by selecting a different path controllers in `Controller.py` on lines 74-76.
+Different labyrinths work best with different control horizon and integral gain for the disturbance compensator, these can be changed in `Params.py` on line 70 and 78.
+
 
 To run the non-linear simulation-based model predictive controller the C++ simulation must be compiled.
 For this a cmake must be installed.
@@ -62,7 +72,7 @@ cd cmake-build-debug
 cmake ..
 cmake --build . --target PhysicSimulationLib
 ```
-Then in `Controller.py` on change the controller form `LinearMPC` to `SimulationController` by commenting line 59 and uncommenting line 60.
+Then in `Controller.py` on change the controller form `LinearMPC` to `SimulationController` by commenting line 78 and uncommenting line 79.
 Finally, execute this command in the projects root directory to run the controller
 ```bash
 python Controller.py
