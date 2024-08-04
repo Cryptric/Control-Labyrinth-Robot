@@ -7,12 +7,13 @@ from matplotlib import pyplot as plt
 from matplotlib.animation import FuncAnimation
 from matplotlib.image import AxesImage
 from matplotlib.lines import Line2D
+import matplotlib
 
 from Params import *
 from utils.ControlUtils import *
 from utils.FrameUtils import *
 from utils.Plotting import pr_cmap
-
+matplotlib.use("tkAgg")
 # plt.rcParams.update({'font.size': 8})
 
 

@@ -4,6 +4,8 @@ from multiprocessing import Pipe, Process, Event, Queue
 import numpy as np
 import serial
 
+import matplotlib
+
 import Davis346Reader
 import Plotter
 from HighLevelController.NearestPointController import NearestPointController
@@ -13,13 +15,14 @@ from controllers.Controllers import *
 from utils.ControlUtils import *
 from utils.FrameUtils import *
 from utils.store import store
+matplotlib.use("tkAgg")
 
 
 def main():
 	start_time = datetime.now()
 
 	# Connect arduino
-	arduino = serial.Serial('/dev/ttyUSB1', 115200, timeout=5)
+	arduino = serial.Serial('/dev/ttyUSB0', 115200, timeout=5)
 	time.sleep(1)
 
 	# Initialize camera process

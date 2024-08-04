@@ -40,13 +40,14 @@ Place the labyrinth against the mounting brackets.
 
 To run the controller execute the following command:
 ```bash
-python Controller.py
+python3 Controller.py
 ```
 In the window that opens, click in the center of the ball, this will define the template used to find the ball during control.
 
 ![](BallSelectionWindow.png)
 
 Then the controller will start (if nothing happens, it is an indication that the ball could not be detected).
+The visualization might not able to keep up.
 
 To achieve good results, it is helpful if the labyrinth platform is levelled.
 The easiest way to level the labyrinth platform is to underlay on one side of the labyrinth until it is level.
@@ -75,7 +76,7 @@ cmake --build . --target PhysicSimulationLib
 Then in `Controller.py` on change the controller form `LinearMPC` to `SimulationController` by commenting line 78 and uncommenting line 79.
 Finally, execute this command in the projects root directory to run the controller
 ```bash
-python Controller.py
+python3 Controller.py
 ```
 
 If the camera or camera position is changed, recalibration is required.

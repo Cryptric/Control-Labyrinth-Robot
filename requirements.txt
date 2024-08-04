@@ -17,6 +17,5 @@ osqp~=0.6.7
 networkx~=3.2.1
 scikit-image~=0.24.0
 opencv-contrib-python~=4.10.0.84
-torch~=2.3.1+cu118
-torchvision~=0.18.1+cu118
 pandas~=2.2.2
+engineering-notation~=0.10.0
