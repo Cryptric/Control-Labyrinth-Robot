@@ -13,7 +13,7 @@ from utils.ControlUtils import *
 from utils.FrameUtils import *
 from utils.Plotting import pr_cmap
 
-plt.rcParams.update({'font.size': 18})
+# plt.rcParams.update({'font.size': 8})
 
 
 def onclick(event):
@@ -23,6 +23,7 @@ def onclick(event):
 
 
 def plot(data_queue, termination_event, line_plot_labels, corner_br, corner_bl, corner_tl, corner_tr):
+	plt.rcParams.update({'font.size': 12})
 	corner_bl = calc_corrected_pos(P_CORNER_BL, 0, 0)
 	corner_br = calc_corrected_pos(P_CORNER_BR, 0, 0)
 	corner_tr = calc_corrected_pos(P_CORNER_TR, 0, 0)
@@ -38,34 +39,44 @@ def plot(data_queue, termination_event, line_plot_labels, corner_br, corner_bl, 
 
 
 	fig, ax = plt.subplots(nrows=3, height_ratios=[3, 1, 1])
+	fig.set_size_inches(12, 8)
+
 	ax[0].set_xticks([])
 	ax[0].set_yticks([])
+	ax[0].set_xlabel("X position")
+	ax[0].set_ylabel("Y position")
 
 	img = ax[0].imshow(np.zeros((IMG_SIZE_Y, IMG_SIZE_X)), cmap="gray", vmin=0, vmax=255)
 	pos_heatmap = ax[0].imshow(np.zeros((IMG_SIZE_Y, IMG_SIZE_X)), cmap=pr_cmap, alpha=1, zorder=99)
 
-	ball_pos_plot, = ax[0].plot([], [], marker='o', label="Ball position", markersize=5, c="gray")
+	ball_pos_plot, = ax[0].plot([], [], marker='o', label="Past ball position", markersize=5, c="gray")
+
+	ball_pos_patch = ax[0].add_patch(plt.Circle((10, 10), 2, color="red", label="Current ball position", zorder=100))
 
 	fig.canvas.mpl_connect('button_press_event', partial(onclick))
-	corner_points_plt = ax[0].scatter([corner_br[0], corner_bl[0], corner_tl[0], corner_tr[0]], [corner_br[1], corner_bl[1], corner_tl[1], corner_tr[1]], label="detected board corners")
 
 	ref_trajectory_plot, = ax[0].plot([], [], marker="x", label="Reference trajectory", markersize=5, c="orange")
-	pred_trajectory_plot, = ax[0].plot([], [], marker="x", label="Predicted trajectory", markersize=5, c="green")
+	pred_trajectory_plot, = ax[0].plot([], [], marker="x", label="Predicted MPC trajectory", markersize=5, c="green")
 
 	ax[1].set_xticks([])
-	ax[1].set_yticks([0])
+	ax[1].set_yticks([-30, 0, 30])
 	ax[1].set_title("Control signal")
+	ax[1].set_xlabel("Time")
+	ax[1].set_ylabel("[°]")
+	ax[1].grid()
 	line_plots = []
 	for label in line_plot_labels:
 		line, = ax[1].plot([1, 2], [1, 2], label=label)
 		line_plots.append(line)
-	ax[1].set_ylim((U_min - DISTURBANCE_INTEGRAL_CLIP) * 180 / np.pi, (U_max + DISTURBANCE_INTEGRAL_CLIP) * 180 / np.pi)
+	ax[1].set_ylim((U_min - DISTURBANCE_INTEGRAL_CLIP/min(K_x, K_y)) * 180 / np.pi * 2, (U_max + DISTURBANCE_INTEGRAL_CLIP/min(K_x, K_y)) * 180 / np.pi * 2)
 
 	ax[2].set_xticks([])
 	ax[2].set_title("Ball velocity")
-	speed_plot_x,  = ax[2].plot([], [], label="ball velocity x")
-	speed_plot_y,  = ax[2].plot([], [], label="ball velocity y")
+	speed_plot_x,  = ax[2].plot([], [], label="Ball velocity x")
+	speed_plot_y,  = ax[2].plot([], [], label="Ball velocity y")
 	ax[2].set_ylim(-300, 300)
+	ax[2].set_xlabel("Time")
+	ax[2].set_ylabel("[mm/s]")
 
 	def update(_, speed_plot, ax2, ax3):
 		frame, heatmap, pos, target_trajectory, [pred_state_x, pred_state_y], data_points, speed, time = data_queue.get()
@@ -85,6 +96,8 @@ def plot(data_queue, termination_event, line_plot_labels, corner_br, corner_bl, 
 		ball_pos_plot.set_xdata(np.append(ball_pos_plot.get_xdata(), pos[0])[-50:])
 		ball_pos_plot.set_ydata(np.append(ball_pos_plot.get_ydata(), pos[1])[-50:])
 
+		ball_pos_patch.set_center([pos[0], pos[1]])
+
 		ref_trajectory_plot.set_xdata(target_trajectory[0])
 		ref_trajectory_plot.set_ydata(target_trajectory[1])
 
@@ -103,8 +116,10 @@ def plot(data_queue, termination_event, line_plot_labels, corner_br, corner_bl, 
 		ax3.relim()
 		ax3.autoscale_view()
 
-		return img, pos_heatmap, ball_pos_plot, corner_points_plt, ref_trajectory_plot, pred_trajectory_plot, *line_plots, *speed_plot
+		return img, pos_heatmap, ball_pos_plot, ref_trajectory_plot, pred_trajectory_plot, ball_pos_patch, *line_plots, *speed_plot
 
+	fig.legend()
+	fig.tight_layout()
 	update_func = partial(update, speed_plot=[speed_plot_x, speed_plot_y], ax2=ax[1], ax3=ax[2])
 	anim = FuncAnimation(fig, update_func, cache_frame_data=False, interval=0, blit=True)
 

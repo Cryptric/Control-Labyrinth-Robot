@@ -31,7 +31,7 @@ def main():
 
 	# Initialize plot process
 	plot_queue = Queue()
-	plot_process = Process(target=Plotter.plot, args=(plot_queue, termination_event, ["signal x", "signal y"], CORNER_BR, CORNER_BL, CORNER_TL, CORNER_TR))
+	plot_process = Process(target=Plotter.plot, args=(plot_queue, termination_event, ["Servo angle control signal x", "Servo angle control signal y"], CORNER_BR, CORNER_BL, CORNER_TL, CORNER_TR))
 	plot_process.start()
 
 	# Preprocessing for controller

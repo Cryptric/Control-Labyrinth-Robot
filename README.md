@@ -51,7 +51,8 @@ To compile the simulation, execute these commands:
 cd simulation/PhysicSimulation
 mkdir cmake-build-debug
 cd cmake-build-debug
-cmake .. --build --target PhysicSimulationLib
+cmake ..
+cmake . --build --target PhysicSimulationLib
 ```
 Then in `Controller.py` on change the controller form `LinearMPC` to `SimulationController` by commenting line 59 and uncommenting line 60.
 Finally, execute this command in the projects root directory to run the controller

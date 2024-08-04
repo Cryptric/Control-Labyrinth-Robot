@@ -85,13 +85,10 @@ def plot_all(file):
 	data_ax[4].legend()
 	data_ax[4].set_title("Platform angle")
 
-
-
 	time_indices = []
 	for ax in data_ax:
 		time_indices.append(ax.axvline(x=0, color="r", label="Time index"))
 
-	future_ball_path, = frame_ax[0].plot(pos_xy_px[:100, 0], pos_xy_px[:100, 1], "r.", label="Future ball position")
 	def update(_):
 		i = index_slider.val
 
@@ -99,11 +96,6 @@ def plot_all(file):
 
 		for time_index in time_indices:
 			time_index.set_xdata([time_ax[i]] * 2)
-
-		# future_ball_path.set_xdata(pos_xy_px[i:i+3*450, 0])
-		# future_ball_path.set_ydata(pos_xy_px[i:i+3*450, 1])
-
-		# disturbance_direction_plt.set_data(x=pos_xy_px[i, 0], y=pos_xy_px[i, 1], dx=(disturbance_compensations_x[i] - disturbance_compensations_x.mean()) * 100, dy=(disturbance_compensations_y[i] - disturbance_compensations_y.mean()) * 100)
 
 		data_fig.canvas.draw_idle()
 
@@ -136,8 +128,8 @@ def plot_all(file):
 	frame_fig.canvas.mpl_connect('button_press_event', handle_click)
 	plt.show()
 
+
 def main():
-	file_name_0 = "2024-07-30_09-21-49.926217.pkl"
 	index_table = pd.read_csv("store/index.csv")
 	file_name = index_table["file_name"].iloc[-1]
 	if file_name.startswith("data_"):
