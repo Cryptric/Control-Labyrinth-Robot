@@ -139,11 +139,7 @@ def check_corner_points(corner_br, corner_bl, corner_tl, corner_tr):
 	angle_tl = calc_angle(corner_tr, corner_tl, corner_bl)
 	angle_tr = calc_angle(corner_br, corner_tr, corner_tl)
 	angle_check = abs(np.pi / 2 - angle_br) < CORNER_ANGLE_MAX_DEVIATION and abs(np.pi / 2 - angle_bl) < CORNER_ANGLE_MAX_DEVIATION and abs(np.pi / 2 - angle_tl) < CORNER_ANGLE_MAX_DEVIATION and abs(np.pi / 2 - angle_tr) < CORNER_ANGLE_MAX_DEVIATION
-	distance_x = abs(calc_distance(corner_bl, corner_br) + calc_distance(corner_tl, corner_tr)) / 2
-	distance_y = abs(calc_distance(corner_bl, corner_tl) + calc_distance(corner_br, corner_tr)) / 2
-	length_check = distance_x * 1.5 < BOARD_LENGTH_X < distance_x * 1.8 and distance_y * 1.5 < BOARD_LENGTH_Y < distance_y * 1.8
-	length_check = True # TODO
-	return angle_check and length_check
+	return angle_check
 
 
 params = cv2.SimpleBlobDetector_Params()
@@ -166,8 +162,6 @@ def detect_focal(frame, scale=5):
 	for i in range(len(key_points)):
 		if abs(25 - key_points[i].size) < abs(25 - key_point.size):
 			key_point = key_points[i]
-	# if len(key_points) > 1 or len(key_points) == 0:
-	# 	print(f"WARNING invalid key points length: {len(key_points)}: 1. ({key_points[0].pt[0] / scale}, {key_points[0].pt[1] / scale}), 2. ({key_points[1].pt[0] / scale}, {key_points[1].pt[1] / scale})")
 	x = key_point.pt[0] / scale
 	y = key_point.pt[1] / scale
 	return np.array([x, y])

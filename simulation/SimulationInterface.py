@@ -1,5 +1,6 @@
 import ctypes
 import time
+import os
 
 import numpy as np
 from numpy.ctypeslib import ndpointer
@@ -10,10 +11,12 @@ from Params import STEPS_DEAD_TIME
 class Simulation:
 	def __init__(self, graphics):
 		self.graphics = graphics
+		cwd = os.getcwd()
+		base_path = f"{cwd}/simulation/PhysicSimulation/cmake-build-debug"
 		if graphics:
-			self.simulation = ctypes.CDLL("/home/gawain/Documents/PhysicSimulation/cmake-build-debug/libPhysicSimulationLib.so")
+			self.simulation = ctypes.CDLL(f"{base_path}/libPhysicSimulationLib.so")
 		else:
-			self.simulation = ctypes.CDLL("/home/gawain/Documents/PhysicSimulation/cmake-build-debug/libPhysicSimulationNoGraphicsLib.so")
+			self.simulation = ctypes.CDLL(f"{base_path}/libPhysicSimulationNoGraphicsLib.so")
 
 		self.simulation_horizon = 30
 

@@ -12,12 +12,6 @@ from scipy.stats import multivariate_normal
 from Params import *
 from utils.FrameUtils import *
 
-# TODO refactor this, utility functions should not manage/contain state
-# always length 2, and index 1 hold most recent angle
-prev_x_angles = [0, 0]
-prev_y_angles = [0, 0]
-
-
 def create_label(x_pos, y_pos, variance=10, img_width=240, img_height=180):
 	x = np.arange(img_width)
 	y = np.arange(img_height)
@@ -83,27 +77,6 @@ p_vals = [[ 27,  26,  23,   6,   8,   2,   8,  10,  20,  27],
  [ 33,  23,  10,   7,   2,   7,   6,   3,  18,  25],
  [ 37,  30,  22,  15,  10,  10,  15,  20,  31,  53]]
 pattern = np.array(p_vals, dtype=np.uint8)
-# p_vals =   [[44,  34,  6,   0,  17,  25,  20,  32,  48],
-# 			[39,   8,  8,  54,  27,  30,  21,  21,  38],
-# 			[ 9,   3, 80, 173,  72,  36,  26,  26,  28],
-# 			[15,  12, 78, 255, 248,  91,  54,  24,  24],
-# 			[12,  13, 37,  96, 184, 247, 179,  32,  22],
-# 			[23,  10, 10,  24,  61, 111, 103,  43,  24],
-# 			[22,  13, 38, 150, 143,  39,  21,  10,  31],
-# 			[40,  32, 19,  71,  76,  29,  29,   9,  38],
-# 			[54,  46, 51,  18,   7,  23,  16,  31,  45]]
-# pattern = np.array(p_vals, dtype=np.uint8)
-#pattern = (
-#np.array([
-#	[21, 8, 10, 20, 18, 10, 4, 12],
-#	[12, 0, 2, 31, 37, 30, 7, 12],
-#	[9, 1, 73, 180, 255, 230, 99, 13],
-#	[11, 5, 27, 68, 109, 146, 111, 70],
-#	[11, 2, 18, 32, 64, 79, 52, 19],
-#	[10, 1, 5, 12, 37, 49, 28, 4],
-#	[10, 1, 0, 0, 13, 21, 7, 0],
-#	[13, 5, 3, 0, 1, 6, 0, 0]
-#], dtype=np.uint8))
 pattern_offset = np.array([5, 5])
 pattern_offset_2 = np.array([-4, -5])
 def find_center4(frame, subpixel=True):
@@ -245,14 +218,6 @@ def map_value_range(x, in_min, in_max, out_min, out_max):
 def send_control_signal(arduino, angle_x, angle_y):
 	global prev_x_angles
 	global prev_y_angles
-
-	# angle_x = angle_x + get_backlash_compensation_term(prev_x_angles, angle_x, servo_backlash_x)
-	# angle_y = angle_y + get_backlash_compensation_term(prev_y_angles, angle_y, servo_backlash_y)
-
-	# prev_x_angles.append(angle_x)
-	# prev_x_angles.pop(0)
-	# prev_y_angles.append(angle_y)
-	# prev_y_angles.pop(0)
 
 	angle_x = angle_x + X_CONTROL_SIGNAL_HORIZONTAL
 	angle_y = angle_y + Y_CONTROL_SIGNAL_HORIZONTAL

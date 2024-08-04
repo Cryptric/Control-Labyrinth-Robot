@@ -51,12 +51,13 @@ def main():
 	ball_pos = find_center4(preprocessing_frame)
 	prev_pos = np.array(apply_transform(coordinate_transform_mat, calc_corrected_pos(ball_pos, 0, 0)))
 
-	path_controller = NearestPointController(gen_path_medium_labyrinth())
-	# path_controller = PathFindingNearestPointController(preprocessing_frame)
-	# path_controller = PathFindingNearestPointController(remove_distortion(frame))
+	# path_controller = NearestPointController(gen_path_medium_labyrinth())
+	# path_controller = NearestPointController(gen_path_simple_labyrinth_auto())
+	path_controller = NearestPointController(gen_path_custom_labyrinth_auto())
 
-	#controller = LinearMPC(prev_pos, path_controller)
-	controller = SimulationController(prev_pos)
+
+	controller = LinearMPC(prev_pos, path_controller)
+	#controller = SimulationController(prev_pos)
 
 	# clear pipe
 	while consumer_conn.poll():
